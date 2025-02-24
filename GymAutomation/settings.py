@@ -41,9 +41,11 @@ INSTALLED_APPS = [
     'GymModule',
     # External Apps :
     'rest_framework',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -131,3 +133,12 @@ AUTH_USER_MODEL = 'GymModule.User'
 
 MEDIA_URL = 'Media/'
 MEDIA_ROOT = BASE_DIR / 'Media'
+
+CORS_ALLOW_ALL_ORIGINS = True  # Allows all origins (not recommended for production)
+# OR (more secure option)
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5174",  # Add your frontend's URL
+    "http://127.0.0.1:5174",
+]
+
+CORS_ALLOW_CREDENTIALS = True  # If your request includes cookies or authentication
