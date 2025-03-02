@@ -41,11 +41,11 @@ INSTALLED_APPS = [
     'GymModule',
     # External Apps :
     'rest_framework',
+    'rest_framework.authtoken',
     'corsheaders',
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -53,7 +53,23 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # JWT Authentication
+        'rest_framework.authentication.SessionAuthentication',        # Session Authentication
+        'rest_framework.authentication.BasicAuthentication',          # Basic Authentication
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',  # Only authenticated users allowed
+    ],
+}
+
+
+
+CORS_ALLOW_CREDENTIALS = True  # If your request includes cookies or authentication
 
 ROOT_URLCONF = 'GymAutomation.urls'
 
@@ -136,9 +152,9 @@ MEDIA_ROOT = BASE_DIR / 'Media'
 
 CORS_ALLOW_ALL_ORIGINS = True  # Allows all origins (not recommended for production)
 # OR (more secure option)
+
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5174",  # Add your frontend's URL
-    "http://127.0.0.1:5174",
+    "http://localhost:3000",
+    "https://www.postman.com",
 ]
 
-CORS_ALLOW_CREDENTIALS = True  # If your request includes cookies or authentication
