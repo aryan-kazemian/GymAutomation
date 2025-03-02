@@ -132,8 +132,10 @@ class GymUserPayment(models.Model):
     )
 
     def save(self, *args, **kwargs):
-        if self.subscription_days:
-            self.gym_user.update_expiration_date(self.subscription_duration, self.subscription_days)
-        else:
-            self.gym_user.update_expiration_date(self.subscription_duration, 0)
-        super(GymUserPayment, self).save(*args, **kwargs)
+        if self._state.adding:
+            if self.subscription_days:
+                self.gym_user.update_expiration_date(self.subscription_duration, self.subscription_days)
+            else:
+                self.gym_user.update_expiration_date(self.subscription_duration, 0)
+
+        super().save(*args, **kwargs)
