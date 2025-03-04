@@ -58,6 +58,7 @@ class GymPayment(models.Model):
 class GymUser(models.Model):
     gym = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=255, null=True, blank=True)
+    family = models.CharField(max_length=255, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
     nation_cod = models.CharField(max_length=255, null=True, blank=True)
     phone_number = models.CharField(max_length=15, null=True, blank=True)
@@ -65,11 +66,14 @@ class GymUser(models.Model):
     join_date = models.DateTimeField(auto_now_add=True)
     expiration_date = models.DateTimeField(null=True, blank=True)
     day_left = models.IntegerField(default=0)
+    started_payment_date = models.DateTimeField(null=True, blank=True)
     fingerprint = models.BinaryField(null=True, blank=True)
     face_image = models.ImageField(upload_to='faces/', null=True, blank=True)
+    face_binary = models.BinaryField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_staff = models.BooleanField(default=False)
+    locker_number= models.IntegerField(null=True, blank=True)
     user_state = models.CharField(
         max_length=40,
         choices=[
@@ -137,5 +141,7 @@ class GymUserPayment(models.Model):
                 self.gym_user.update_expiration_date(self.subscription_duration, self.subscription_days)
             else:
                 self.gym_user.update_expiration_date(self.subscription_duration, 0)
+
+            self.gym_user.started_payment_date = self.payed_date
 
         super().save(*args, **kwargs)
