@@ -145,3 +145,16 @@ class GymUserPayment(models.Model):
             self.gym_user.started_payment_date = self.payed_date
 
         super().save(*args, **kwargs)
+
+
+class Logs(models.Model):
+    gym = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
+    gym_user = models.ForeignKey(GymUser, on_delete=models.CASCADE)
+    login_time = models.TimeField(auto_now_add=True)
+    login_date = models.DateField(auto_now_add=True)
+    logout_time = models.TimeField(auto_now_add=True)
+
+
+
+
+

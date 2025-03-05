@@ -4,9 +4,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .models import User, GymUser, GymUserPayment
+from .models import User, GymUser, GymUserPayment, Logs
 from .serializers import (UserSerializer, GymUserSerializer, GymUserEditSerializer,
-                          GymUserPaymentSerializer, GymUserPaymentEditSerializer)
+                          GymUserPaymentSerializer, GymUserPaymentEditSerializer, LogsEditSerializer, LogsSerializer)
 
 
 class UserAPIView(APIView):
@@ -187,3 +187,43 @@ class GymUserPaymentAPIView(APIView):
         payment = get_object_or_404(GymUserPayment, id=int(payment_id))
         payment.delete()
         return Response({'message': 'Payment deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
+
+
+class LogsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Retrieve logs filtered by gym-user-id or gym-id."""
+        gym_user_id = request.GET.get('gym-user-id')
+        gym_id = request.GET.get('gym-id')
+
+        if gym_user_id:
+            logs = Logs.objects.filter(gym_user_id=int(gym_user_id))
+        elif gym_id:
+            logs = Logs.objects.filter(gym__id=int(gym_id))
+        else:
+            return Response({'error': 'Provide either gym-user-id or gym-id'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = LogsSerializer(logs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        """Create a new log entry."""
+        serializer = LogsSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request):
+        """Update logout_time for a specific log entry."""
+        log_id = request.GET.get('log-id')
+        if not log_id:
+            return Response({'error': 'Log ID is required for editing'}, status=status.HTTP_400_BAD_REQUEST)
+
+        log = get_object_or_404(Logs, id=int(log_id))
+        serializer = LogsEditSerializer(log, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

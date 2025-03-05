@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, GymUser, GymUserPayment
+from .models import User, GymUser, GymUserPayment, Logs
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -33,3 +33,13 @@ class GymUserPaymentEditSerializer(serializers.ModelSerializer):
     class Meta:
         model = GymUserPayment
         fields = ['payed_amount', 'subscription_duration', 'subscription_days', 'payment_method', 'payment_state']
+
+class LogsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Logs
+        fields = '__all__'
+
+class LogsEditSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Logs
+        fields = ['logout_time']
