@@ -13,14 +13,6 @@ class User(AbstractUser):
     locker_count = models.IntegerField(default=60)
     vip_locker_count = models.IntegerField(default=20)
     image = models.ImageField(upload_to='gym-images/', null=True, blank=True)
-    biometric_type = models.CharField(
-        max_length=40,
-        choices=[
-            ('finger_print', 'finger print'),
-            ('face_scan', 'face scan'),
-        ],
-        default='finger_print'
-    )
 
     def update_expiration_date(self, subscription_duration):
         # Duration map for adding time
@@ -81,6 +73,14 @@ class GymUser(models.Model):
             ('normal', 'normal'),
         ],
         default='vip'
+    )
+    biometric_type = models.CharField(
+        max_length=40,
+        choices=[
+            ('finger_print', 'finger print'),
+            ('face_scan', 'face scan'),
+        ],
+         null=True
     )
 
     def update_expiration_date(self, subscription_duration, days):
