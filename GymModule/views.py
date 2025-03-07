@@ -10,7 +10,7 @@ from .serializers import (UserSerializer, GymUserSerializer, GymUserEditSerializ
 
 
 class UserAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
 
     def post(self, request):
         """Handle user login."""
@@ -55,7 +55,7 @@ class UserAPIView(APIView):
 
 
 class GymUserAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
 
     def get(self, request):
         """Retrieve all gym users by gym-id or a single gym user by user-id."""
@@ -118,7 +118,7 @@ class GymUserAPIView(APIView):
 
 
 class GymUserPaymentAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
 
     def get(self, request):
         """Retrieve payments based on gym-id, user-id, or a specific payment-id."""
@@ -190,7 +190,7 @@ class GymUserPaymentAPIView(APIView):
 
 
 class LogsAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
 
     def get(self, request):
         """Retrieve logs filtered by gym-user-id or gym-id."""
