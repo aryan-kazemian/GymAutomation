@@ -1,17 +1,15 @@
-from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
+from django.contrib.auth import authenticate
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
 from .models import User, GymUser, GymUserPayment, Logs
 from .serializers import (UserSerializer, GymUserSerializer, GymUserEditSerializer,
                           GymUserPaymentSerializer, GymUserPaymentEditSerializer, LogsEditSerializer, LogsSerializer)
+from rest_framework.pagination import PageNumberPagination
 
 
 class UserAPIView(APIView):
-    # permission_classes = [IsAuthenticated]
-
     def post(self, request):
         """Handle user login."""
         username = request.data.get('username')
@@ -24,7 +22,7 @@ class UserAPIView(APIView):
                 return Response(serializer.data, status=status.HTTP_200_OK)
             return Response({'error': 'Invalid username or password'}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response({'error': 'Username and password required'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'User ID is required'}, status=status.HTTP_400_BAD_REQUEST)
 
     def get(self, request):
         """Retrieve user information by ID."""
@@ -51,179 +49,85 @@ class UserAPIView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Invalid data'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class GymUserAPIView(APIView):
-    # permission_classes = [IsAuthenticated]
-
     def get(self, request):
-        """Retrieve all gym users by gym-id or a single gym user by user-id."""
+        """Retrieve all gym users with optional pagination."""
         gym_id = request.GET.get('gym-id')
         user_id = request.GET.get('user-id')
+        page = request.GET.get('page', 1)
+        item_perpage = request.GET.get('item_perpage', 10)
 
         if user_id:
             user = get_object_or_404(GymUser, id=int(user_id))
             serializer = GymUserSerializer(user)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
+        users = GymUser.objects.all()
         if gym_id:
-            users = GymUser.objects.filter(gym_id=int(gym_id))
-            serializer = GymUserSerializer(users, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            users = users.filter(gym_id=int(gym_id))
 
-        return Response({'error': 'Provide either gym-id or user-id'}, status=status.HTTP_400_BAD_REQUEST)
-
-    def patch(self, request):
-        """Edit a gym user's details."""
-        user_id = request.GET.get('user-id')
-
-        if not user_id:
-            return Response({'error': 'User ID is required'}, status=status.HTTP_400_BAD_REQUEST)
-
-        user = get_object_or_404(GymUser, id=int(user_id))
-        serializer = GymUserEditSerializer(user, data=request.data, partial=True)
-
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request):
-        """Delete a gym user by ID."""
-        user_id = request.GET.get('user-id')
-
-        if not user_id:
-            return Response({'error': 'User ID is required'}, status=status.HTTP_400_BAD_REQUEST)
-
-        user = get_object_or_404(GymUser, id=int(user_id))
-        user.delete()
-        return Response({'message': 'User deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
+        from rest_framework.pagination import PageNumberPagination
+        paginator = PageNumberPagination()
+        paginator.page_size = int(item_perpage)
+        result_page = paginator.paginate_queryset(users, request)
+        serializer = GymUserSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         """Create a new gym user if ?create=true is provided."""
-        create_flag = request.GET.get('create')
-
-        if create_flag != 'true':
-            return Response({'error': 'Invalid request for creation'}, status=status.HTTP_400_BAD_REQUEST)
-
         serializer = GymUserSerializer(data=request.data)
-
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class GymUserPaymentAPIView(APIView):
-    # permission_classes = [IsAuthenticated]
-
     def get(self, request):
-        """Retrieve payments based on gym-id, user-id, or a specific payment-id."""
+        """Retrieve gym user payments with optional pagination."""
         gym_id = request.GET.get('gym-id')
         user_id = request.GET.get('user-id')
         payment_id = request.GET.get('payment-id')
+        page = request.GET.get('page', 1)
+        item_perpage = request.GET.get('item_perpage', 10)
 
         if payment_id:
             payment = get_object_or_404(GymUserPayment, id=int(payment_id))
             serializer = GymUserPaymentSerializer(payment)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
+        payments = GymUserPayment.objects.all()
         if gym_id:
-            payments = GymUserPayment.objects.filter(gym_user__gym_id=int(gym_id))
+            payments = payments.filter(gym_user__gym_id=int(gym_id))
         elif user_id:
-            payments = GymUserPayment.objects.filter(gym_user__id=int(user_id))
-        else:
-            return Response({'error': 'Provide either gym-id or user-id'}, status=status.HTTP_400_BAD_REQUEST)
+            payments = payments.filter(gym_user__id=int(user_id))
 
-        serializer = GymUserPaymentSerializer(payments, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def post(self, request):
-        """Create a new payment if ?create=true."""
-        create_flag = request.GET.get('create')
-
-        if create_flag != 'true':
-            return Response({'error': 'Invalid request for creation'}, status=status.HTTP_400_BAD_REQUEST)
-
-        user_id = request.data.get('user_id')
-
-        if not user_id:
-            return Response({'error': 'User ID is required for payment creation'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            gym_user = GymUser.objects.get(id=int(user_id))
-        except GymUser.DoesNotExist:
-            return Response({'error': 'Invalid Gym User ID'}, status=status.HTTP_400_BAD_REQUEST)
-
-        serializer = GymUserPaymentSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(gym_user=gym_user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def patch(self, request):
-        """Edit an existing payment by payment-id."""
-        payment_id = request.GET.get('payment-id')
-        if not payment_id:
-            return Response({'error': 'Payment ID is required for editing'}, status=status.HTTP_400_BAD_REQUEST)
-
-        payment = get_object_or_404(GymUserPayment, id=int(payment_id))
-        serializer = GymUserPaymentEditSerializer(payment, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request):
-        """Delete a payment by payment-id."""
-        payment_id = request.GET.get('payment-id')
-        if not payment_id:
-            return Response({'error': 'Payment ID is required for deletion'}, status=status.HTTP_400_BAD_REQUEST)
-
-        payment = get_object_or_404(GymUserPayment, id=int(payment_id))
-        payment.delete()
-        return Response({'message': 'Payment deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
+        paginator = PageNumberPagination()
+        paginator.page_size = int(item_perpage)
+        result_page = paginator.paginate_queryset(payments, request)
+        serializer = GymUserPaymentSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
 
 class LogsAPIView(APIView):
-    # permission_classes = [IsAuthenticated]
-
     def get(self, request):
-        """Retrieve logs filtered by gym-user-id or gym-id."""
+        """Retrieve logs filtered by gym-user-id or gym-id with pagination."""
         gym_user_id = request.GET.get('gym-user-id')
         gym_id = request.GET.get('gym-id')
+        page = request.GET.get('page', 1)
+        item_perpage = request.GET.get('item_perpage', 10)
 
+        logs = Logs.objects.all()
         if gym_user_id:
-            logs = Logs.objects.filter(gym_user_id=int(gym_user_id))
+            logs = logs.filter(gym_user_id=int(gym_user_id))
         elif gym_id:
             logs = Logs.objects.filter(gym__id=int(gym_id))
-        else:
-            return Response({'error': 'Provide either gym-user-id or gym-id'}, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = LogsSerializer(logs, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def post(self, request):
-        """Create a new log entry."""
-        serializer = LogsSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def patch(self, request):
-        """Update logout_time for a specific log entry."""
-        log_id = request.GET.get('log-id')
-        if not log_id:
-            return Response({'error': 'Log ID is required for editing'}, status=status.HTTP_400_BAD_REQUEST)
-
-        log = get_object_or_404(Logs, id=int(log_id))
-        serializer = LogsEditSerializer(log, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        paginator = PageNumberPagination()
+        paginator.page_size = int(item_perpage)
+        result_page = paginator.paginate_queryset(logs, request)
+        serializer = LogsSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
