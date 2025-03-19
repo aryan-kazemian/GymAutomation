@@ -57,7 +57,7 @@ class GymUser(models.Model):
     birthday = models.DateField(null=True, blank=True)
     join_date = models.DateTimeField(auto_now_add=True)
     expiration_date = models.DateTimeField(null=True, blank=True)
-    day_left = models.IntegerField(default=0)
+    day_left = models.IntegerField(default=0, null=True, blank=True)
     started_payment_date = models.DateTimeField(null=True, blank=True)
     fingerprint = models.BinaryField(null=True, blank=True)
     face_image = models.ImageField(upload_to='faces/', null=True, blank=True)
