@@ -27,7 +27,7 @@ class GymUserPaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = GymUserPayment
         fields = '__all__'
-        read_only_fields = ['id', 'payed_date', 'gym_user']
+        read_only_fields = ['id', 'payed_date']
 
 class GymUserPaymentEditSerializer(serializers.ModelSerializer):
     class Meta:
