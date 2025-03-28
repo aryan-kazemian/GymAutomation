@@ -64,7 +64,6 @@ class CustomPagination(PageNumberPagination):
         self.page_size = int(request.GET.get('item_perpage', 10))
         return super().paginate_queryset(queryset, request, view)
 
-
 class GymUserAPIView(APIView):
     def get(self, request):
         gym_id = request.GET.get('gym-id')
@@ -80,7 +79,6 @@ class GymUserAPIView(APIView):
             ).count()
 
             return Response({'active_users': active_users_count}, status=status.HTTP_200_OK)
-
 
         if user_id:
             user = get_object_or_404(GymUser, id=int(user_id))
@@ -113,18 +111,35 @@ class GymUserAPIView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def delete(self, request):
+        user_id = request.GET.get('user-id')
+        if not user_id:
+            return Response({'error': 'User ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = get_object_or_404(GymUser, id=int(user_id))
+        user.delete()
+        return Response({'message': 'User deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
 
 class GymUserPaymentAPIView(APIView):
+    from django.utils.timezone import now
+    from datetime import timedelta
+
     def get(self, request):
         gym_id = request.GET.get('gym-id')
         user_id = request.GET.get('user-id')
         payment_id = request.GET.get('payment-id')
+        past_year_filter = request.GET.get('past-year-payments')
 
         if payment_id:
             payment = get_object_or_404(GymUserPayment, id=int(payment_id))
             return Response(GymUserPaymentSerializer(payment).data, status=status.HTTP_200_OK)
 
         payments = GymUserPayment.objects.all()
+
+        if past_year_filter == "1":
+            one_year_ago = now() - timedelta(days=365)
+            payments = payments.filter(payed_date__gte=one_year_ago)
+
         if gym_id:
             payments = payments.filter(gym_user__gym_id=int(gym_id))
         if user_id:
@@ -152,7 +167,6 @@ class GymUserPaymentAPIView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 class LogsAPIView(APIView):
     def get(self, request):

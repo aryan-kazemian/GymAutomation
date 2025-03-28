@@ -21,7 +21,9 @@ class GymUserEditSerializer(serializers.ModelSerializer):
     class Meta:
         model = GymUser
         fields = ['name', 'family', 'email', 'nation_cod', 'phone_number', 'birthday',
-                  'fingerprint', 'face_image', 'is_staff', 'user_state', 'locker_number', 'face_binary', 'biometric_type']
+                  'fingerprint', 'face_image', 'is_staff', 'user_state', 'locker_number', 'face_binary', 'biometric_type',
+                  "started_payment_date"
+                  ]
 
 class GymUserPaymentSerializer(serializers.ModelSerializer):
     class Meta:
