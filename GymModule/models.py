@@ -12,6 +12,7 @@ class User(AbstractUser):
     is_gym_manager = models.BooleanField(default=True)
     locker_count = models.IntegerField(default=60)
     vip_locker_count = models.IntegerField(default=20)
+    vip_locker_numbers = models.ManyToManyField('VipLocker', blank=True, null=True)
     image = models.ImageField(upload_to='gym-images/', null=True, blank=True)
 
     def update_expiration_date(self, subscription_duration):
@@ -24,6 +25,12 @@ class User(AbstractUser):
         }
         self.expiration_date += duration_map.get(subscription_duration, timedelta(days=365))
         self.save()
+
+class VipLocker(models.Model):
+    number = models.IntegerField(unique=True)
+
+    def __str__(self):
+        return f"VIP Locker #{self.number}"
 
 class GymPayment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -145,7 +152,6 @@ class GymUserPayment(models.Model):
             self.gym_user.started_payment_date = self.payed_date
 
         super().save(*args, **kwargs)
-
 
 class Logs(models.Model):
     gym = models.ForeignKey(User, on_delete=models.CASCADE, null=True)

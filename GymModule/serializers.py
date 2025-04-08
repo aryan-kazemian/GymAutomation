@@ -1,16 +1,22 @@
 from rest_framework import serializers
-from .models import User, GymUser, GymUserPayment, Logs
+from .models import User, GymUser, GymUserPayment, Logs, VipLocker
 
 
 class UserSerializer(serializers.ModelSerializer):
+    vip_locker_numbers = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=VipLocker.objects.all(), required=False
+    )
+
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'last_login', 'is_active',
             'date_joined', 'use_day_left', 'gym_name', 'gym_address',
-            'phone_number', 'expiration_date', 'locker_count', 'vip_locker_count', 'image'
+            'phone_number', 'expiration_date', 'locker_count', 'vip_locker_count',
+            'vip_locker_numbers', 'image'
         ]
         read_only_fields = ['id', 'username', 'last_login', 'date_joined', 'is_active', 'expiration_date']
+
 
 class GymUserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -45,3 +51,8 @@ class LogsEditSerializer(serializers.ModelSerializer):
     class Meta:
         model = Logs
         fields = ['logout_time']
+
+class VipLockerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VipLocker
+        fields = ['id', 'number']
