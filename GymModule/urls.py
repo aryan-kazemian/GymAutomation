@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import UserAPIView, GymUserAPIView, GymUserPaymentAPIView, LogsAPIView
+from .views import UserAPIView, GymUserAPIView, GymUserPaymentAPIView, LogsAPIView, VipLockerAPIView
 from rest_framework_simplejwt import views as jwt_views
 
 urlpatterns = [
@@ -8,6 +8,8 @@ urlpatterns = [
     path('api/gym-user/', GymUserAPIView.as_view(), name='gym-user-api'),
     path('api/payment/', GymUserPaymentAPIView.as_view(), name='gym-user-payment-api'),
     path('api/logs/', LogsAPIView.as_view(), name='logs-api'),
+
+    path('api/vip-lockers/', VipLockerAPIView.as_view(), name='vip-locker-api'),
 
     # Token endpoints for JWT authentication
     path('api/token/', jwt_views.TokenObtainPairView.as_view(), name='token_obtain_pair'),

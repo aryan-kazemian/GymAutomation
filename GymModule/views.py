@@ -12,7 +12,7 @@ from django.utils.timezone import now
 from .serializers import (
     UserSerializer, GymUserSerializer, GymUserEditSerializer,
     GymUserPaymentSerializer, GymUserPaymentEditSerializer,
-    LogsEditSerializer, LogsSerializer
+    LogsEditSerializer, LogsSerializer, VipLockerSerializer
 )
 
 
@@ -226,4 +226,81 @@ class LogsAPIView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class VipLockerAPIView(APIView):
+
+    def get(self, request):
+        gym_id = request.GET.get('gym_id')
+        if not gym_id:
+            return Response({"error": "gym_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = get_object_or_404(User, id=gym_id)
+        vip_lockers = user.vip_locker_numbers.all()
+        serializer = VipLockerSerializer(vip_lockers, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        gym_id = request.GET.get('gym_id')
+        if not gym_id:
+            return Response({"error": "gym_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = get_object_or_404(User, id=gym_id)
+        data = request.data
+        numbers = data.get('number')
+
+        if isinstance(numbers, list):
+            created_lockers = []
+            for number in numbers:
+                locker, _ = VipLocker.objects.get_or_create(number=number)
+                user.vip_locker_numbers.add(locker)
+                created_lockers.append(locker)
+            serializer = VipLockerSerializer(created_lockers, many=True)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        elif isinstance(numbers, int):
+            locker, _ = VipLocker.objects.get_or_create(number=numbers)
+            user.vip_locker_numbers.add(locker)
+            serializer = VipLockerSerializer(locker)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response({"error": "Invalid number format. Must be int or list of ints."},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request):
+        gym_id = request.GET.get('gym_id')
+        locker_number = request.GET.get('locker_number')
+
+        if not gym_id or not locker_number:
+            return Response({"error": "gym_id and locker_number are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = get_object_or_404(User, id=gym_id)
+        locker = get_object_or_404(VipLocker, number=int(locker_number))
+
+        if locker not in user.vip_locker_numbers.all():
+            return Response({"error": "Locker not assigned to this user"}, status=status.HTTP_404_NOT_FOUND)
+
+        new_number = request.data.get('number')
+        if not new_number:
+            return Response({"error": "New locker number is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        locker.number = new_number
+        locker.save()
+        return Response({"success": f"Locker updated to number {new_number}"}, status=status.HTTP_200_OK)
+
+    def delete(self, request):
+        gym_id = request.GET.get('gym_id')
+        locker_number = request.GET.get('locker_number')
+
+        if not gym_id or not locker_number:
+            return Response({"error": "gym_id and locker_number are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = get_object_or_404(User, id=gym_id)
+        locker = get_object_or_404(VipLocker, number=int(locker_number))
+
+        if locker not in user.vip_locker_numbers.all():
+            return Response({"error": "Locker not assigned to this user"}, status=status.HTTP_404_NOT_FOUND)
+
+        user.vip_locker_numbers.remove(locker)
+        locker.delete()
+        return Response({"success": f"Locker #{locker_number} deleted"}, status=status.HTTP_204_NO_CONTENT)
 

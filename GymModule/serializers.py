@@ -17,6 +17,10 @@ class UserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'username', 'last_login', 'date_joined', 'is_active', 'expiration_date']
 
+class VipLockerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VipLocker
+        fields = ['id', 'number']
 
 class GymUserSerializer(serializers.ModelSerializer):
     class Meta:
