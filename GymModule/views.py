@@ -1,19 +1,21 @@
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from django.contrib.auth import authenticate
-from rest_framework.response import Response
-from rest_framework import status
 from django.utils import timezone
 from rest_framework.pagination import PageNumberPagination
 from .models import User, GymUser, GymUserPayment, Logs, VipLocker
 from django.db.models import Q
-from datetime import timedelta, datetime
+from datetime import timedelta
 from django.utils.timezone import now
 from .serializers import (
     UserSerializer, GymUserSerializer, GymUserEditSerializer,
     GymUserPaymentSerializer, GymUserPaymentEditSerializer,
     LogsEditSerializer, LogsSerializer, VipLockerSerializer
 )
+from rest_framework.response import Response
+from rest_framework import status
+import jdatetime
+import calendar
 
 
 class UserAPIView(APIView):
@@ -160,9 +162,32 @@ class GymUserPaymentAPIView(APIView):
             payments = payments.filter(payed_date__gte=one_year_ago)
             use_pagination = False
 
+            if not gym_id:
+                return Response({'error': 'gym-id is required for past-year-payments'},
+                                status=status.HTTP_400_BAD_REQUEST)
 
-        if gym_id:
             payments = payments.filter(gym_user__gym_id=int(gym_id))
+
+            # Initialize a list of 13 zeros (12 months + 1 for total year)
+            monthly_totals = [0] * 13
+
+            for payment in payments:
+                try:
+                    amount = int(str(payment.payed_amount).replace(' ', '').replace(',', ''))
+                except (ValueError, AttributeError):
+                    continue  # Skip if conversion fails
+
+                # Convert payed_date to Jalali
+                jalali_date = jdatetime.date.fromgregorian(date=payment.payed_date.date())
+                month_index = jalali_date.month - 1
+
+                if 0 <= month_index <= 11:
+                    monthly_totals[month_index] += amount
+
+                monthly_totals[12] += amount  # Total of last 365 days
+
+            return Response({'monthly_payed_amounts': monthly_totals}, status=status.HTTP_200_OK)
+
         if user_id:
             payments = payments.filter(gym_user__id=int(user_id))
 
@@ -170,7 +195,6 @@ class GymUserPaymentAPIView(APIView):
             paginator = CustomPagination()
             result_page = paginator.paginate_queryset(payments, request)
             return paginator.get_paginated_response(GymUserPaymentSerializer(result_page, many=True).data)
-
         else:
             return Response(GymUserPaymentSerializer(payments, many=True).data, status=status.HTTP_200_OK)
 

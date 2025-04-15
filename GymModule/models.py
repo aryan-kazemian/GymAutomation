@@ -107,7 +107,7 @@ class GymUser(models.Model):
 
 class GymUserPayment(models.Model):
     gym_user = models.ForeignKey(GymUser, on_delete=models.CASCADE)
-    payed_amount = models.CharField(max_length=120)
+    payed_amount = models.IntegerField()
     payed_date = models.DateTimeField(auto_now_add=True)
     subscription_duration = models.CharField(
         max_length=20,
