@@ -1,10 +1,10 @@
 from django.db import models
 from django.utils.timezone import now
-from UserModule.models import User
+from UserModule.models import GenMember
 
 
 class Log(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(GenMember, on_delete=models.CASCADE)
     full_name = models.CharField(max_length=200, null=True, blank=True)
 
     is_online = models.BooleanField(default=True)

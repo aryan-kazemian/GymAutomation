@@ -1,5 +1,5 @@
 from django.db import models
-from UserModule.models import User
+from UserModule.models import GenPerson
 
 class Locker(models.Model):
     is_vip = models.BooleanField(default=False)
@@ -8,7 +8,7 @@ class Locker(models.Model):
     log = models.JSONField(null=True,
                            blank=True)  # Stores a list of log entries, e.g., [{"full_name": "John Doe", "datetime": "2025-05-08T12:30:00"}]
 
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    user = models.ForeignKey(GenPerson, on_delete=models.SET_NULL, null=True, blank=True)
     full_name = models.CharField(max_length=200, null=True, blank=True)
 
     def __str__(self):
