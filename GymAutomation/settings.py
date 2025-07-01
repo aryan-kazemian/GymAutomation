@@ -48,7 +48,9 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'pyodbc',
-    'pillow_avif'
+    'pillow_avif',
+    "channels",
+    "IdentificationModule",
 ]
 
 MIDDLEWARE = [
@@ -83,31 +85,17 @@ TEMPLATES = [
 WSGI_APPLICATION = 'GymAutomation.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'GymAutomationRestoredDataBase',
-#         'USER': 'postgres',
-#         'PASSWORD': '138461011e',
-#         'HOST': 'localhost',
-#         'PORT': '5432',
-#     }
-# }
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'gym_db'),
-        'USER': os.getenv('DB_USER', 'postgres'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'yourpassword'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'NAME': os.getenv('DB_NAME', 'GymAutomationRestoredDataBase'),  # fallback local DB name
+        'USER': os.getenv('DB_USER', 'postgres'),                     # fallback local user
+        'PASSWORD': os.getenv('DB_PASSWORD', '138461011e'),           # fallback local password
+        'HOST': os.getenv('DB_HOST', 'localhost'),                    # fallback local host
         'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
-
 
 
 # Password validation
@@ -159,3 +147,15 @@ CORS_ALLOWED_ORIGINS = [
 
 MEDIA_URL = 'Media/'
 MEDIA_ROOT = BASE_DIR / 'Media'
+
+
+ASGI_APPLICATION = "GymAutomation.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [(os.getenv("REDIS_HOST", "127.0.0.1"), int(os.getenv("REDIS_PORT", 6379)))],
+        },
+    },
+}
