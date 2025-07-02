@@ -49,8 +49,6 @@ INSTALLED_APPS = [
     'corsheaders',
     'pyodbc',
     'pillow_avif',
-    "channels",
-    "IdentificationModule",
 ]
 
 MIDDLEWARE = [
@@ -147,15 +145,3 @@ CORS_ALLOWED_ORIGINS = [
 
 MEDIA_URL = 'Media/'
 MEDIA_ROOT = BASE_DIR / 'Media'
-
-
-ASGI_APPLICATION = "GymAutomation.asgi.application"
-
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [(os.getenv("REDIS_HOST", "127.0.0.1"), int(os.getenv("REDIS_PORT", 6379)))],
-        },
-    },
-}

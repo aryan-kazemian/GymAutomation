@@ -1,5 +1,3 @@
-from datetime import timezone
-
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -9,6 +7,46 @@ from .serializers import (
     GenShiftSerializer, SecUserSerializer, GenPersonSerializer, GenPersonRoleSerializer,
     GenMemberSerializer, GenMembershipTypeSerializer
 )
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+
+@method_decorator(csrf_exempt, name='dispatch')
+class AuthenticationAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        action = request.GET.get("action")
+
+        if action == "login":
+            print("login")
+            return self.login(request)
+        elif action == "logout":
+            print("logout")
+            return self.logout(request)
+        else:
+            return Response({"error": "Invalid action. Use ?action=login or ?action=logout"}, status=400)
+
+    def login(self, request):
+        username = request.data.get("username")
+        password = request.data.get("password")
+
+        if not username or not password:
+            return Response({"error": "Username and password are required."}, status=400)
+
+        try:
+            user = SecUser.objects.get(username=username, password=password, is_active=True)
+        except SecUser.DoesNotExist:
+            return Response({"error": "Invalid credentials."}, status=401)
+
+        request.session["user_id"] = user.id
+        request.session["username"] = user.username
+        return Response({"message": "Login successful", "user_id": user.id})
+
+    def logout(self, request):
+        request.session.flush()
+        return Response({"message": "Logout successful"})
 
 
 class DynamicAPIView(APIView):
