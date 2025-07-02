@@ -2,17 +2,15 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db.models import Q
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+
 from .models import GenShift, SecUser, GenPerson, GenPersonRole, GenMember, GenMembershipType
 from .serializers import (
     GenShiftSerializer, SecUserSerializer, GenPersonSerializer, GenPersonRoleSerializer,
     GenMemberSerializer, GenMembershipTypeSerializer
 )
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 
 @method_decorator(csrf_exempt, name='dispatch')
 class AuthenticationAPIView(APIView):
@@ -50,6 +48,7 @@ class AuthenticationAPIView(APIView):
 
 
 class DynamicAPIView(APIView):
+
     def get_model(self, action):
         if action == 'shift':
             return GenShift
@@ -65,7 +64,7 @@ class DynamicAPIView(APIView):
             return GenMembershipType
         return None
 
-    def get_serializer(self, model):
+    def get_serializer_class(self, model):
         if model == GenShift:
             return GenShiftSerializer
         elif model == SecUser:
@@ -80,11 +79,19 @@ class DynamicAPIView(APIView):
             return GenMembershipTypeSerializer
         return None
 
+    def get_serializer(self, *args, **kwargs):
+        # This method overrides DRF's get_serializer to create the serializer instance correctly
+        if not hasattr(self, 'serializer_class') or self.serializer_class is None:
+            raise AssertionError("serializer_class must be set before calling get_serializer()")
+        return self.serializer_class(*args, **kwargs)
+
     def get(self, request):
         action = request.query_params.get('action')
         model = self.get_model(action)
         if not model:
             return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
+
+        self.serializer_class = self.get_serializer_class(model)
 
         filters = Q()
         object_id = request.query_params.get('id')
@@ -128,7 +135,7 @@ class DynamicAPIView(APIView):
         end = start + limit
         paginated_queryset = queryset[start:end]
 
-        serializer = self.get_serializer(model)(paginated_queryset, many=True)
+        serializer = self.get_serializer(paginated_queryset, many=True)
         return Response({
             'total_items': total_items,
             'total_pages': total_pages,
@@ -141,6 +148,8 @@ class DynamicAPIView(APIView):
         model = self.get_model(action)
         if not model:
             return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
+
+        self.serializer_class = self.get_serializer_class(model)
 
         data = request.data.copy()
 
@@ -163,7 +172,7 @@ class DynamicAPIView(APIView):
                 base_id += 1
             data['id'] = base_id
 
-        serializer = self.get_serializer(model)(data=data)
+        serializer = self.get_serializer(data=data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -184,7 +193,9 @@ class DynamicAPIView(APIView):
         except model.DoesNotExist:
             return Response({'error': f'{action} not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = self.get_serializer(model)(obj, data=request.data, partial=True)
+        self.serializer_class = self.get_serializer_class(model)
+
+        serializer = self.get_serializer(obj, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
