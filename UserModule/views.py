@@ -202,21 +202,28 @@ class DynamicAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
-        action = request.query_params.get('action')
-        model = self.get_model(action)
-        if not model:
-            return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
+        action = request.query_params.get("action")
 
-        object_id = request.query_params.get('id')
-        if not object_id:
-            return Response({'error': 'ID parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
+        # Default to None at start
+        self.serializer_class = None
 
-        try:
-            instance = model.objects.get(id=object_id)
-        except model.DoesNotExist:
-            return Response({'error': 'Object not found'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if action == "user":
+            # Use id from query params or request data
+            user_id = request.query_params.get("id") or request.data.get("id")
 
-        instance.delete()
-        return Response({'message': 'Deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
+            # Set serializer class upfront to avoid AssertionError
+            self.serializer_class = SecUserSerializer
+
+            if not user_id:
+                return Response({"detail": "User ID is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                user = SecUser.objects.get(id=user_id)
+                user.delete()
+                return Response({"detail": "User deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+            except SecUser.DoesNotExist:
+                return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # For any other action, set serializer_class to None (or a default if you prefer)
+        self.serializer_class = None
+        return Response({"detail": "Invalid action."}, status=status.HTTP_400_BAD_REQUEST)
