@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 class LogAPIView(APIView):
     def get(self, request):
+        log_id = request.query_params.get('id')  # <-- added this line at the top of the method
+
         # Pagination params
         try:
             page = int(request.query_params.get('page', 1))
@@ -27,8 +29,11 @@ class LogAPIView(APIView):
         except ValueError:
             return Response({'error': 'Invalid pagination parameters'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Fetch all logs ordered by id desc (latest first)
-        logs_qs = Log.objects.all().order_by('-id')
+        # Use log_id if provided, else get all logs
+        if log_id:
+            logs_qs = Log.objects.filter(id=log_id).order_by('-id')
+        else:
+            logs_qs = Log.objects.all().order_by('-id')
 
         total_items = logs_qs.count()
         total_pages = ceil(total_items / limit) if total_items > 0 else 1
@@ -52,7 +57,6 @@ class LogAPIView(APIView):
 
             # person_image base64 encode if exists
             if person and person.person_image:
-                # person_image is binary field, encode safely
                 person_image_b64 = base64.b64encode(person.person_image).decode('utf-8')
             else:
                 person_image_b64 = None
@@ -74,17 +78,18 @@ class LogAPIView(APIView):
 
             items.append(item)
 
-            online_memebers = Log.objects.filter(is_online=True).count()
+        online_memebers = Log.objects.filter(is_online=True).count()
 
         response_data = {
             'total_items': total_items,
             'current_page': page,
             'total_pages': total_pages,
-            'online_memebers': online_memebers, 
+            'online_memebers': online_memebers,
             'items': items,
         }
 
         return Response(response_data)
+
 
     def post(self, request):
         user_id = request.data.get('user')

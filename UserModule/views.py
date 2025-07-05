@@ -203,27 +203,20 @@ class DynamicAPIView(APIView):
 
     def delete(self, request):
         action = request.query_params.get("action")
+        model = self.get_model(action)
 
-        # Default to None at start
-        self.serializer_class = None
+        if not model:
+            return Response({"detail": "Invalid action."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if action == "user":
-            # Use id from query params or request data
-            user_id = request.query_params.get("id") or request.data.get("id")
+        self.serializer_class = self.get_serializer_class(model)  # ✅ Fix added here
 
-            # Set serializer class upfront to avoid AssertionError
-            self.serializer_class = SecUserSerializer
+        object_id = request.query_params.get("id") or request.data.get("id")
+        if not object_id:
+            return Response({"detail": "ID is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-            if not user_id:
-                return Response({"detail": "User ID is required."}, status=status.HTTP_400_BAD_REQUEST)
-
-            try:
-                user = SecUser.objects.get(id=user_id)
-                user.delete()
-                return Response({"detail": "User deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
-            except SecUser.DoesNotExist:
-                return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        # For any other action, set serializer_class to None (or a default if you prefer)
-        self.serializer_class = None
-        return Response({"detail": "Invalid action."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            obj = model.objects.get(id=object_id)
+            obj.delete()
+            return Response({"detail": f"{action} deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+        except model.DoesNotExist:
+            return Response({"detail": f"{action} not found."}, status=status.HTTP_404_NOT_FOUND)
