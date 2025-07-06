@@ -41,7 +41,17 @@ class PaymentAPIView(APIView):
         elif end_date:
             filters &= Q(payment_date__lte=end_date)
 
-        payments = Payment.objects.filter(filters).order_by('-id')
+        payments = Payment.objects.filter(filters)
+
+        # Ordering - default to latest payment_date descending
+        order_by = request.query_params.get('order_by')
+        if order_by == 'latest':
+            payments = payments.order_by('-payment_date')
+        elif order_by == 'earlier':
+            payments = payments.order_by('payment_date')
+        else:
+            payments = payments.order_by('-payment_date')  # Default ordering
+
         total_items = payments.count()
 
         # Pagination
@@ -67,6 +77,7 @@ class PaymentAPIView(APIView):
             "total_items": total_items,
             "items": serializer.data
         })
+
 
 
     def post(self, request):
