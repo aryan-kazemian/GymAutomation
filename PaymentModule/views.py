@@ -41,7 +41,8 @@ class PaymentAPIView(APIView):
         elif end_date:
             filters &= Q(payment_date__lte=end_date)
 
-        payments = Payment.objects.filter(filters)
+        payments = Payment.objects.filter(filters).order_by('-id')
+        total_items = payments.count()
 
         # Pagination
         try:
@@ -57,7 +58,16 @@ class PaymentAPIView(APIView):
         paginated_payments = payments[start:end]
 
         serializer = PaymentSerializer(paginated_payments, many=True)
-        return Response(serializer.data)
+        total_pages = (total_items + limit - 1) // limit  # ceiling division
+
+        return Response({
+            "limit": limit,
+            "page": page,
+            "total_pages": total_pages,
+            "total_items": total_items,
+            "items": serializer.data
+        })
+
 
     def post(self, request):
         serializer = PaymentSerializer(data=request.data)
