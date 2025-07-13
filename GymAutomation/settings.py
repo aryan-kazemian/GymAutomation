@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'LockerModule',
     'DataImporterModule',
     "ImageURLModule",
+    'DeviceManagerModule',
     'rest_framework',
     'corsheaders',
     'pyodbc',

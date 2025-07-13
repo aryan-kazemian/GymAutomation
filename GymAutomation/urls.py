@@ -25,6 +25,7 @@ urlpatterns = [
         path('api/payments/', include('PaymentModule.urls')),
         path('api/lockers/', include('LockerModule.urls')),
         path('api/', include('DataImporterModule.urls')),
+        path('api/devices/', include('DeviceManagerModule.urls')),
         path('api/upload-images/', include('ImageURLModule.urls')),
 ]
 

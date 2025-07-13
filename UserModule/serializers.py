@@ -60,7 +60,7 @@ class GenMemberSerializer(serializers.ModelSerializer):
     minutiae = Base64BinaryField(required=False, allow_null=True)
     minutiae2 = Base64BinaryField(required=False, allow_null=True)
     minutiae3 = Base64BinaryField(required=False, allow_null=True)
-    session_left = serializers.IntegerField(required=False, allow_null=True)  # Correct field name
+    session_left = serializers.IntegerField(required=False, allow_null=True)
 
     class Meta:
         model = GenMember
@@ -69,10 +69,9 @@ class GenMemberSerializer(serializers.ModelSerializer):
             'membership_datetime', 'modifier', 'modification_datetime', 'is_family', 'max_debit',
             'minutiae', 'minutiae2', 'minutiae3', 'salary', 'couch_id',
             'face_template_1', 'face_template_2', 'face_template_3', 'face_template_4', 'face_template_5',
-            'session_left',  # This must be included here with exact name
-            'end_date',
-            'sport',
+            'session_left', 'end_date', 'sport', 'price'
         ]
+
 
 
 

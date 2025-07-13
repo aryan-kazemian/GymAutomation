@@ -101,6 +101,11 @@ class GenMember(models.Model):
     session_left = models.IntegerField(null=True, blank=True)
     end_date = models.CharField(max_length=255, null=True, blank=True)
     sport = models.CharField(max_length=255, null=True, blank=True)
+    price = models.CharField(max_length=255, null=True, blank=True)
+
 
     def __str__(self):
         return f"Member {self.id} - {self.card_no}"
+    
+
+        
