@@ -18,7 +18,9 @@ logger = logging.getLogger(__name__)
 
 class LogAPIView(APIView):
     def get(self, request):
-        log_id = request.query_params.get('id')  # <-- added this line at the top of the method
+        log_id = request.query_params.get('id')
+        is_online_param = request.query_params.get('is_online')
+        person_param = request.query_params.get('person')  # <-- NEW LINE
 
         # Pagination params
         try:
@@ -29,33 +31,47 @@ class LogAPIView(APIView):
         except ValueError:
             return Response({'error': 'Invalid pagination parameters'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Use log_id if provided, else get all logs
+        # Start building the queryset
+        logs_qs = Log.objects.all()
+
         if log_id:
-            logs_qs = Log.objects.filter(id=log_id).order_by('-id')
-        else:
-            logs_qs = Log.objects.all().order_by('-id')
+            logs_qs = logs_qs.filter(id=log_id)
+
+        if is_online_param is not None:
+            if is_online_param == '1':
+                logs_qs = logs_qs.filter(is_online=True)
+            elif is_online_param == '0':
+                logs_qs = logs_qs.filter(is_online=False)
+            else:
+                return Response({'error': 'Invalid is_online value. Use 1 or 0.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Filter by person ID
+        if person_param is not None:
+            try:
+                person_id = int(person_param)
+            except ValueError:
+                return Response({'error': 'Invalid person ID'}, status=status.HTTP_400_BAD_REQUEST)
+            logs_qs = logs_qs.filter(user__person__id=person_id)
+
+        logs_qs = logs_qs.order_by('-id')
 
         total_items = logs_qs.count()
         total_pages = ceil(total_items / limit) if total_items > 0 else 1
 
-        # Calculate pagination slice
         start = (page - 1) * limit
         end = start + limit
         logs_page = logs_qs[start:end]
 
-        # Prepare result list
         items = []
 
         for log in logs_page:
-            member = log.user  # GenMember instance
+            member = log.user
             person = member.person if member else None
 
-            # Locker linked to this person
             locker = None
             if person:
                 locker = Locker.objects.filter(user=person).order_by('-id').first()
 
-            # person_image base64 encode if exists
             if person and person.person_image:
                 person_image_b64 = base64.b64encode(person.person_image).decode('utf-8')
             else:
@@ -64,6 +80,7 @@ class LogAPIView(APIView):
             item = {
                 'id': log.id,
                 'user': member.id if member else None,
+                'person_id': person.id if person else None,
                 'full_name': person.full_name if person else log.full_name,
                 'is_online': log.is_online,
                 'entry_time': log.entry_time,
@@ -90,21 +107,27 @@ class LogAPIView(APIView):
 
         return Response(response_data)
 
-
     def post(self, request):
         user_id = request.data.get('user')
         if user_id is None:
             return Response({'user': 'This field is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            get_object_or_404(GenMember, id=user_id)
+            member = get_object_or_404(GenMember, id=user_id)
         except Exception:
             return Response({'user': 'Invalid user ID.'}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = LogSerializer(data=request.data)
         if serializer.is_valid():
             try:
-                serializer.save()
+                log = serializer.save()
+
+                # Decrement session_left if it's not None
+                if member.session_left is not None:
+                    if member.session_left > 0:
+                        member.session_left -= 1
+                    member.save()
+
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             except Exception as e:
                 logger.error(f"Error saving Log: {e}", exc_info=True)
@@ -112,6 +135,7 @@ class LogAPIView(APIView):
         else:
             logger.warning(f"Validation errors: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
     def patch(self, request):
         log_id = request.query_params.get('id')
