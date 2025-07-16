@@ -26,7 +26,6 @@ urlpatterns = [
         path('api/lockers/', include('LockerModule.urls')),
         path('api/', include('DataImporterModule.urls')),
         path('api/devices/', include('DeviceManagerModule.urls')),
-        path('api/upload-images/', include('ImageURLModule.urls')),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

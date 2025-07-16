@@ -74,6 +74,7 @@ class GenPerson(models.Model):
 
 class GenMember(models.Model):
     id = models.BigIntegerField(primary_key=True)
+    membership_type = models.ForeignKey(GenMembershipType, on_delete=models.CASCADE, null=True, blank=True)
     card_no = models.CharField(max_length=50, null=True, blank=True)
     couch_id = models.IntegerField(null=True, blank=True)
     person = models.ForeignKey(GenPerson, null=True, blank=True, on_delete=models.SET_NULL, related_name='members')

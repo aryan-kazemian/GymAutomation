@@ -51,6 +51,12 @@ class GenPersonRoleSerializer(serializers.ModelSerializer):
         fields = ['id', 'role_desc']
 
 
+class GenMembershipTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GenMembershipType
+        fields = ['id', 'membership_type_desc']
+
+
 class GenMemberSerializer(serializers.ModelSerializer):
     face_template_1 = Base64BinaryField(required=False, allow_null=True)
     face_template_2 = Base64BinaryField(required=False, allow_null=True)
@@ -65,17 +71,9 @@ class GenMemberSerializer(serializers.ModelSerializer):
     class Meta:
         model = GenMember
         fields = [
-            'id', 'card_no', 'person', 'role', 'user', 'shift', 'is_black_list', 'box_radif_no', 'has_finger',
-            'membership_datetime', 'modifier', 'modification_datetime', 'is_family', 'max_debit',
+            'id', 'membership_type', 'card_no', 'person', 'role', 'user', 'shift', 'is_black_list', 'box_radif_no',
+            'has_finger', 'membership_datetime', 'modifier', 'modification_datetime', 'is_family', 'max_debit',
             'minutiae', 'minutiae2', 'minutiae3', 'salary', 'couch_id',
             'face_template_1', 'face_template_2', 'face_template_3', 'face_template_4', 'face_template_5',
             'session_left', 'end_date', 'sport', 'price'
         ]
-
-
-
-
-class GenMembershipTypeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = GenMembershipType
-        fields = ['id', 'membership_type_desc']

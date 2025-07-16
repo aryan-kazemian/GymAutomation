@@ -126,6 +126,8 @@ class LogAPIView(APIView):
                 if member.session_left is not None:
                     if member.session_left > 0:
                         member.session_left -= 1
+                    else:
+                        member.session_left = None
                     member.save()
 
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
