@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'pyodbc',
     'pillow_avif',
+    'Test',
 ]
 
 MIDDLEWARE = [
