@@ -1,12 +1,11 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.db.models import Q
+from django.db.models import Q, Sum
 from .models import Payment
 from .serializers import PaymentSerializer
-import jdatetime
-from django.db.models import Q, Sum
-
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
 
 class PaymentAPIView(APIView):
@@ -20,45 +19,97 @@ class PaymentAPIView(APIView):
             except Payment.DoesNotExist:
                 return Response({'error': 'Payment not found.'}, status=status.HTTP_404_NOT_FOUND)
 
+        # New year filter handling
+        year_param = request.query_params.get('year')
+        if year_param == '1':
+            # Calculate date range for last 12 months from today
+            today = datetime.today()
+            start_date = (today - relativedelta(months=12)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            end_date = today.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+            # Filter payments in this range
+            payments_in_year = Payment.objects.filter(payment_date__range=[start_date, end_date])
+
+            # Calculate total price for the whole year (last 12 months)
+            total_price_year = payments_in_year.aggregate(total=Sum('price'))['total'] or 0
+
+            # Count total items in last 12 months
+            total_items = payments_in_year.count()
+
+            # Calculate monthly totals for the last 12 months
+            monthly_totals = []
+            current_month = start_date
+            for i in range(12):
+                # Month start
+                month_start = current_month
+                # Month end is one month ahead minus 1 second
+                month_end = (month_start + relativedelta(months=1)) - timedelta(seconds=1)
+
+                total_month_price = payments_in_year.filter(payment_date__range=[month_start, month_end]) \
+                    .aggregate(total=Sum('price'))['total'] or 0
+
+                monthly_totals.append({
+                    "year": month_start.year,
+                    "month": month_start.month,
+                    "total_price": total_month_price
+                })
+
+                current_month += relativedelta(months=1)
+
+            response_data = {
+                "total_price": total_price_year,
+                "total_items": total_items,
+                "monthly_totals": monthly_totals,
+            }
+
+            return Response(response_data)
+
+        # If year=0 or missing, normal flow with month, start, end filters
+
         filters = Q()
 
-        # Check for 'month' param (Jalali month filter)
-        month_str = request.query_params.get('month')
-        if month_str:
+        # Handle 'month' param with custom logic
+        month_param = request.query_params.get('month')
+        if month_param is not None:
             try:
-                month = int(month_str)
-                if not (1 <= month <= 12):
-                    raise ValueError()
+                month_num = int(month_param)
+                if month_num < 0:
+                    return Response({'error': 'Month parameter cannot be negative.'}, status=status.HTTP_400_BAD_REQUEST)
             except ValueError:
-                return Response({'error': 'Invalid month parameter, must be 1-12.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'Invalid month parameter, must be an integer.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # We want payments where payment_date's Jalali month == month
-            # So we will filter payments by converting payment_date to Jalali month in Python
-            # This requires us to fetch all payments first and filter manually or filter by possible Gregorian range approx.
+            # Calculate target year and month based on current date
+            today = datetime.today()
+            # Go back month_num months
+            target_date = today - relativedelta(months=month_num)
+            target_year = target_date.year
+            target_month = target_date.month
 
-            # To optimize, convert the Jalali month to Gregorian date range for this year:
-            today_gregorian = jdatetime.date.today().togregorian()
-            today_jalali = jdatetime.date.today()
+            # Calculate first and last datetime for that month
+            start_month_date = datetime(target_year, target_month, 1)
+            # To get end of the month, add one month then subtract 1 second
+            end_month_date = (start_month_date + relativedelta(months=1)) - timedelta(seconds=1)
 
-            # To cover full Jalali year, we get Jalali year from today, then calculate first and last day for that month
-            jalali_year = today_jalali.year
-            start_jalali = jdatetime.date(jalali_year, month, 1)
-            # calculate end day for the month (simplest way: use jdatetime.date range +1 month -1 day)
-            if month == 12:
-                end_jalali = jdatetime.date(jalali_year + 1, 1, 1) - jdatetime.timedelta(days=1)
-            else:
-                end_jalali = jdatetime.date(jalali_year, month + 1, 1) - jdatetime.timedelta(days=1)
+            filters &= Q(payment_date__range=[start_month_date, end_month_date])
 
-            # convert to Gregorian for filtering in DB:
-            start_gregorian = start_jalali.togregorian()
-            end_gregorian = end_jalali.togregorian()
+        # Handle start and end datetime filters (overrides month filtering if both present)
+        start_str = request.query_params.get('start')
+        end_str = request.query_params.get('end')
 
-            filters &= Q(payment_date__range=[start_gregorian, end_gregorian])
+        if start_str or end_str:
+            try:
+                if start_str:
+                    start_date = datetime.fromisoformat(start_str)
+                    filters &= Q(payment_date__gte=start_date)
+                if end_str:
+                    end_date = datetime.fromisoformat(end_str)
+                    filters &= Q(payment_date__lte=end_date)
+            except ValueError:
+                return Response({'error': 'Invalid start or end datetime format. Use ISO format.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Exact match filters
+        # Exact match filters (skip payment_date if month or start/end filters are applied)
         for field in ['user', 'price', 'payment_date']:
-            # Only apply if 'month' not present because payment_date is filtered differently when month is present
-            if month_str and field == 'payment_date':
+            if (month_param is not None or start_str or end_str) and field == 'payment_date':
                 continue
             value = request.query_params.get(field)
             if value is not None:
@@ -70,22 +121,11 @@ class PaymentAPIView(APIView):
             if value is not None:
                 filters &= Q(**{f"{field}__icontains": value})
 
-        # Payment date range filter, skip if month param used (to avoid conflicting date filters)
-        start_date = request.query_params.get('from')
-        end_date = request.query_params.get('to')
-        if not month_str:
-            if start_date and end_date:
-                filters &= Q(payment_date__range=[start_date, end_date])
-            elif start_date:
-                filters &= Q(payment_date__gte=start_date)
-            elif end_date:
-                filters &= Q(payment_date__lte=end_date)
-
         payments = Payment.objects.filter(filters)
 
         # Calculate total_price only if 'month' is present
         total_price = None
-        if month_str:
+        if month_param is not None:
             total_price = payments.aggregate(total=Sum('price'))['total'] or 0
 
         # Ordering - default to latest payment_date descending
@@ -129,7 +169,7 @@ class PaymentAPIView(APIView):
             response_data = {"total_price": total_price, **response_data}
 
         return Response(response_data)
-        
+
     def post(self, request):
         serializer = PaymentSerializer(data=request.data)
         if serializer.is_valid():

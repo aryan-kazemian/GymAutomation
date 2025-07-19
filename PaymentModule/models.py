@@ -4,7 +4,7 @@ from UserModule.models import GenPerson
 class Payment(models.Model):
     user = models.ForeignKey(GenPerson, on_delete=models.CASCADE, null=True, blank=True)
     price = models.IntegerField(null=True, blank=True)
-    payment_date = models.DateField(auto_now_add=True)
+    payment_date = models.DateTimeField(auto_now_add=True)
     duration = models.CharField(max_length=100, null=True, blank=True)
     paid_method = models.CharField(max_length=100, null=True, blank=True)
     payment_status = models.CharField(max_length=100, null=True, blank=True)
