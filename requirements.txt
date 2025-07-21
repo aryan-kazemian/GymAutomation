@@ -1,8 +1,11 @@
 asgiref==3.8.1
+certifi==2025.7.14
+charset-normalizer==3.4.2
 Django==5.2.1
 django-cors-headers==4.7.0
 djangorestframework==3.16.0
 git-filter-repo==2.47.0
+idna==3.10
 jalali_core==1.0.0
 jdatetime==5.2.0
 pillow==11.2.1
@@ -10,6 +13,10 @@ pillow-avif-plugin==1.5.2
 psycopg2==2.9.10
 psycopg2-binary==2.9.10
 pyodbc==5.2.0
+python-dateutil==2.9.0.post0
 redis==4.5.5
+requests==2.32.4
+six==1.17.0
 sqlparse==0.5.3
 tzdata==2025.2
+urllib3==2.5.0

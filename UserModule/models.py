@@ -103,6 +103,7 @@ class GenMember(models.Model):
     end_date = models.CharField(max_length=255, null=True, blank=True)
     sport = models.CharField(max_length=255, null=True, blank=True)
     price = models.CharField(max_length=255, null=True, blank=True)
+    is_single_settion = models.BooleanField(default=False)
 
 
     def __str__(self):

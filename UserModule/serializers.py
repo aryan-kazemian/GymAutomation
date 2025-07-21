@@ -75,5 +75,5 @@ class GenMemberSerializer(serializers.ModelSerializer):
             'has_finger', 'membership_datetime', 'modifier', 'modification_datetime', 'is_family', 'max_debit',
             'minutiae', 'minutiae2', 'minutiae3', 'salary', 'couch_id',
             'face_template_1', 'face_template_2', 'face_template_3', 'face_template_4', 'face_template_5',
-            'session_left', 'end_date', 'sport', 'price'
+            'session_left', 'end_date', 'sport', 'price', "is_single_settion"
         ]

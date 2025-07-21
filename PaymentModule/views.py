@@ -1,12 +1,103 @@
+from collections import defaultdict
+import calendar
+from datetime import datetime, timedelta
+
+from django.db.models import Sum, Count, Q
+from django.db.models.functions import TruncDay, TruncMonth
+from django.utils.timezone import now
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.db.models import Q, Sum
-from .models import Payment
-from .serializers import PaymentSerializer
-from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta
 
+from .models import Payment
+from .serializers import PaymentSerializer, PaymentSummarySerializer
+from UserModule.models import GenMember
+
+
+class PaymentSummaryAPIView(APIView):
+    def get(self, request):
+        today = now().date()
+        current_year = today.year
+        current_month = today.month
+
+        # Filter payments linked to members where is_single_settion=True
+        payments = Payment.objects.filter(
+            user__members__is_single_settion=True
+        )
+
+        # Calculate total price and count
+        total_agg = payments.aggregate(total_price=Sum('price'), total_count=Count('id'))
+        total_price = total_agg['total_price'] or 0
+        total_count = total_agg['total_count'] or 0
+
+        # This year
+        year_payments = payments.filter(payment_date__year=current_year)
+        year_agg = year_payments.aggregate(year_price=Sum('price'), year_count=Count('id'))
+        year_price = year_agg['year_price'] or 0
+        year_count = year_agg['year_count'] or 0
+
+        # This month
+        month_payments = year_payments.filter(payment_date__month=current_month)
+        month_agg = month_payments.aggregate(month_price=Sum('price'), month_count=Count('id'))
+        month_price = month_agg['month_price'] or 0
+        month_count = month_agg['month_count'] or 0
+
+        # Today
+        today_payments = month_payments.filter(payment_date__date=today)
+        today_agg = today_payments.aggregate(today_price=Sum('price'), today_count=Count('id'))
+        today_price = today_agg['today_price'] or 0
+        today_count = today_agg['today_count'] or 0
+
+        # Daily prices and counts for all days in this month
+        daily_prices = defaultdict(lambda: {'total_price': 0, 'count': 0})
+        days_in_month = calendar.monthrange(current_year, current_month)[1]
+        for day in range(1, days_in_month + 1):
+            date_str = f"{current_year}-{current_month:02d}-{day:02d}"
+            daily_prices[date_str] = {'total_price': 0, 'count': 0}
+
+        daily_agg = month_payments.values('payment_date__date').annotate(
+            total_price=Sum('price'),
+            count=Count('id')
+        )
+
+        for item in daily_agg:
+            date_key = item['payment_date__date'].strftime('%Y-%m-%d')
+            daily_prices[date_key] = {
+                'total_price': item['total_price'] or 0,
+                'count': item['count'] or 0
+            }
+
+        # Monthly prices and counts for all months in this year
+        monthly_prices = defaultdict(lambda: {'total_price': 0, 'count': 0})
+        for month in range(1, 13):
+            month_key = f"{current_year}-{month:02d}"
+            monthly_prices[month_key] = {'total_price': 0, 'count': 0}
+
+        monthly_agg = year_payments.values('payment_date__month').annotate(
+            total_price=Sum('price'),
+            count=Count('id')
+        )
+
+        for item in monthly_agg:
+            month_key = f"{current_year}-{item['payment_date__month']:02d}"
+            monthly_prices[month_key] = {
+                'total_price': item['total_price'] or 0,
+                'count': item['count'] or 0
+            }
+
+        return Response({
+            'total_price': total_price,
+            'total_count': total_count,
+            'year_price': year_price,
+            'year_count': year_count,
+            'month_price': month_price,
+            'month_count': month_count,
+            'today_price': today_price,
+            'today_count': today_count,
+            'daily_prices': dict(daily_prices),
+            'monthly_prices': dict(monthly_prices),
+        })
 
 class PaymentAPIView(APIView):
     def get(self, request):

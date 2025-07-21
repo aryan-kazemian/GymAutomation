@@ -2,49 +2,12 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db.models import Q
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 
 from .models import GenShift, SecUser, GenPerson, GenPersonRole, GenMember, GenMembershipType
 from .serializers import (
     GenShiftSerializer, SecUserSerializer, GenPersonSerializer, GenPersonRoleSerializer,
     GenMemberSerializer, GenMembershipTypeSerializer
 )
-
-
-@method_decorator(csrf_exempt, name='dispatch')
-class AuthenticationAPIView(APIView):
-    def post(self, request, *args, **kwargs):
-        action = request.GET.get("action")
-
-        if action == "login":
-            print("login")
-            return self.login(request)
-        elif action == "logout":
-            print("logout")
-            return self.logout(request)
-        else:
-            return Response({"error": "Invalid action. Use ?action=login or ?action=logout"}, status=400)
-
-    def login(self, request):
-        username = request.data.get("username")
-        password = request.data.get("password")
-
-        if not username or not password:
-            return Response({"error": "Username and password are required."}, status=400)
-
-        try:
-            user = SecUser.objects.get(username=username, password=password, is_active=True)
-        except SecUser.DoesNotExist:
-            return Response({"error": "Invalid credentials."}, status=401)
-
-        request.session["user_id"] = user.id
-        request.session["username"] = user.username
-        return Response({"message": "Login successful", "user_id": user.id})
-
-    def logout(self, request):
-        request.session.flush()
-        return Response({"message": "Logout successful"})
 
 
 class DynamicAPIView(APIView):
@@ -62,6 +25,8 @@ class DynamicAPIView(APIView):
             return GenMember
         elif action == 'membership_type':
             return GenMembershipType
+        elif action == 'pool':
+            return GenMember  # ✅ Added pool mapping
         return None
 
     def get_serializer_class(self, model):
@@ -80,7 +45,6 @@ class DynamicAPIView(APIView):
         return None
 
     def get_serializer(self, *args, **kwargs):
-        # This method overrides DRF's get_serializer to create the serializer instance correctly
         if not hasattr(self, 'serializer_class') or self.serializer_class is None:
             raise AssertionError("serializer_class must be set before calling get_serializer()")
         return self.serializer_class(*args, **kwargs)
@@ -93,6 +57,52 @@ class DynamicAPIView(APIView):
 
         self.serializer_class = self.get_serializer_class(model)
 
+        if action == 'pool':
+            queryset = GenMember.objects.select_related('shift', 'person')
+
+            filters = Q()
+            for key, value in request.query_params.items():
+                if key not in ['action', 'page', 'limit', 'order_by']:
+                    filters &= Q(**{key: value})
+
+            queryset = queryset.filter(filters)
+
+            order_by = request.query_params.get('order_by')
+            if order_by == 'latest':
+                queryset = queryset.order_by('-creation_datetime')
+            elif order_by == 'earlier':
+                queryset = queryset.order_by('creation_datetime')
+
+            try:
+                page = int(request.query_params.get('page', 1))
+                limit = int(request.query_params.get('limit', 10))
+            except ValueError:
+                return Response({'error': 'Invalid pagination values'}, status=status.HTTP_400_BAD_REQUEST)
+
+            total_items = queryset.count()
+            total_pages = (total_items + limit - 1) // limit
+
+            start = (page - 1) * limit
+            end = start + limit
+            paginated_queryset = queryset[start:end]
+
+            data = []
+            for member in paginated_queryset:
+                data.append({
+                    'price': member.price,
+                    'shift_description': member.shift.shift_desc if member.shift else None,
+                    'creation_datetime': member.creation_datetime,
+                    'full_name': member.person.full_name if member.person else None
+                })
+
+            return Response({
+                'total_items': total_items,
+                'total_pages': total_pages,
+                'current_page': page,
+                'items': data
+            })
+
+        # Rest of your existing get logic untouched
         filters = Q()
         object_id = request.query_params.get('id')
 
@@ -136,32 +146,61 @@ class DynamicAPIView(APIView):
         paginated_queryset = queryset[start:end]
 
         serializer = self.get_serializer(paginated_queryset, many=True)
+        data = serializer.data
+
+        # Extra for person
+        if action == 'person':
+            person_ids = [item['id'] for item in data]
+            members = GenMember.objects.filter(person_id__in=person_ids).select_related('role').order_by('-creation_datetime')
+            member_map = {}
+            for member in members:
+                pid = member.person_id
+                if pid not in member_map:
+                    member_map[pid] = {
+                        'role': member.role.role_desc if member.role else None,
+                        'sport': member.sport,
+                        'session_left': member.session_left,
+                        'subscription_end_date': member.end_date,
+                    }
+            for item in data:
+                extra = member_map.get(item['id'], {})
+                item['role'] = extra.get('role')
+                item['sport'] = extra.get('sport')
+                item['session_left'] = extra.get('session_left')
+                item['subscription_end_date'] = extra.get('subscription_end_date')
+
+        # Extra for member
+        if action == 'member':
+            person_ids = [item.get('person') for item in data if item.get('person')]
+            persons = GenPerson.objects.filter(id__in=person_ids).values('id', 'full_name')
+            person_map = {p['id']: p['full_name'] for p in persons}
+            for item in data:
+                person_id = item.get('person')
+                item['full_name'] = person_map.get(person_id)
+
         return Response({
             'total_items': total_items,
             'total_pages': total_pages,
             'current_page': page,
-            'items': serializer.data
+            'items': data
         })
 
     def post(self, request):
         action = request.query_params.get('action')
         model = self.get_model(action)
-        if not model:
+        if not model or action == 'pool':
             return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
 
         self.serializer_class = self.get_serializer_class(model)
 
         data = request.data.copy()
 
-        # If id is not manually set, auto-assign the next free one
         if 'id' not in data or data['id'] in [None, '']:
-            # Use the lowest unused ID starting from 1
             existing_ids = set(model.objects.values_list('id', flat=True))
             new_id = 1
             while new_id in existing_ids:
                 new_id += 1
             data['id'] = new_id
-
         else:
             try:
                 base_id = int(data['id'])
@@ -181,7 +220,7 @@ class DynamicAPIView(APIView):
     def patch(self, request):
         action = request.query_params.get('action')
         model = self.get_model(action)
-        if not model:
+        if not model or action == 'pool':
             return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
 
         object_id = request.query_params.get('id')
@@ -194,7 +233,6 @@ class DynamicAPIView(APIView):
             return Response({'error': f'{action} not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         self.serializer_class = self.get_serializer_class(model)
-
         serializer = self.get_serializer(obj, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -204,11 +242,10 @@ class DynamicAPIView(APIView):
     def delete(self, request):
         action = request.query_params.get("action")
         model = self.get_model(action)
-
-        if not model:
+        if not model or action == 'pool':
             return Response({"detail": "Invalid action."}, status=status.HTTP_400_BAD_REQUEST)
 
-        self.serializer_class = self.get_serializer_class(model)  # ✅ Fix added here
+        self.serializer_class = self.get_serializer_class(model)
 
         object_id = request.query_params.get("id") or request.data.get("id")
         if not object_id:
