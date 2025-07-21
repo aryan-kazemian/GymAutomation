@@ -1,15 +1,14 @@
-import logging
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.db.models import Q
-from django.utils.dateparse import parse_datetime
-from django.shortcuts import get_object_or_404
 import base64
+import logging
 from math import ceil
+
 from django.db.models import Q
-from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+from django.utils.timezone import now
 from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from .models import Log, GenMember
 from .serializers import LogSerializer
 from LockerModule.models import Locker
@@ -20,9 +19,8 @@ class LogAPIView(APIView):
     def get(self, request):
         log_id = request.query_params.get('id')
         is_online_param = request.query_params.get('is_online')
-        person_param = request.query_params.get('person')  # <-- NEW LINE
+        person_param = request.query_params.get('person')
 
-        # Pagination params
         try:
             page = int(request.query_params.get('page', 1))
             limit = int(request.query_params.get('limit', 10))
@@ -31,7 +29,6 @@ class LogAPIView(APIView):
         except ValueError:
             return Response({'error': 'Invalid pagination parameters'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Start building the queryset
         logs_qs = Log.objects.all()
 
         if log_id:
@@ -45,7 +42,6 @@ class LogAPIView(APIView):
             else:
                 return Response({'error': 'Invalid is_online value. Use 1 or 0.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Filter by person ID
         if person_param is not None:
             try:
                 person_id = int(person_param)
@@ -95,13 +91,13 @@ class LogAPIView(APIView):
 
             items.append(item)
 
-        online_memebers = Log.objects.filter(is_online=True).count()
+        online_members = Log.objects.filter(is_online=True).count()
 
         response_data = {
             'total_items': total_items,
             'current_page': page,
             'total_pages': total_pages,
-            'online_memebers': online_memebers,
+            'online_members': online_members,
             'items': items,
         }
 
@@ -121,15 +117,12 @@ class LogAPIView(APIView):
         if serializer.is_valid():
             try:
                 log = serializer.save()
-
-                # Decrement session_left if it's not None
                 if member.session_left is not None:
                     if member.session_left > 0:
                         member.session_left -= 1
                     else:
                         member.session_left = None
                     member.save()
-
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             except Exception as e:
                 logger.error(f"Error saving Log: {e}", exc_info=True)
@@ -137,7 +130,6 @@ class LogAPIView(APIView):
         else:
             logger.warning(f"Validation errors: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
     def patch(self, request):
         log_id = request.query_params.get('id')

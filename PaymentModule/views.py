@@ -1,9 +1,9 @@
 from collections import defaultdict
 import calendar
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
 from django.db.models import Sum, Count, Q
-from django.db.models.functions import TruncDay, TruncMonth
 from django.utils.timezone import now
 
 from rest_framework.views import APIView
@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from .models import Payment
-from .serializers import PaymentSerializer, PaymentSummarySerializer
+from .serializers import PaymentSerializer
 from UserModule.models import GenMember
 
 
@@ -21,35 +21,29 @@ class PaymentSummaryAPIView(APIView):
         current_year = today.year
         current_month = today.month
 
-        # Filter payments linked to members where is_single_settion=True
         payments = Payment.objects.filter(
             user__members__is_single_settion=True
         )
 
-        # Calculate total price and count
         total_agg = payments.aggregate(total_price=Sum('price'), total_count=Count('id'))
         total_price = total_agg['total_price'] or 0
         total_count = total_agg['total_count'] or 0
 
-        # This year
         year_payments = payments.filter(payment_date__year=current_year)
         year_agg = year_payments.aggregate(year_price=Sum('price'), year_count=Count('id'))
         year_price = year_agg['year_price'] or 0
         year_count = year_agg['year_count'] or 0
 
-        # This month
         month_payments = year_payments.filter(payment_date__month=current_month)
         month_agg = month_payments.aggregate(month_price=Sum('price'), month_count=Count('id'))
         month_price = month_agg['month_price'] or 0
         month_count = month_agg['month_count'] or 0
 
-        # Today
         today_payments = month_payments.filter(payment_date__date=today)
         today_agg = today_payments.aggregate(today_price=Sum('price'), today_count=Count('id'))
         today_price = today_agg['today_price'] or 0
         today_count = today_agg['today_count'] or 0
 
-        # Daily prices and counts for all days in this month
         daily_prices = defaultdict(lambda: {'total_price': 0, 'count': 0})
         days_in_month = calendar.monthrange(current_year, current_month)[1]
         for day in range(1, days_in_month + 1):
@@ -68,7 +62,6 @@ class PaymentSummaryAPIView(APIView):
                 'count': item['count'] or 0
             }
 
-        # Monthly prices and counts for all months in this year
         monthly_prices = defaultdict(lambda: {'total_price': 0, 'count': 0})
         for month in range(1, 13):
             month_key = f"{current_year}-{month:02d}"
@@ -99,6 +92,7 @@ class PaymentSummaryAPIView(APIView):
             'monthly_prices': dict(monthly_prices),
         })
 
+
 class PaymentAPIView(APIView):
     def get(self, request):
         payment_id = request.query_params.get('id')
@@ -110,30 +104,20 @@ class PaymentAPIView(APIView):
             except Payment.DoesNotExist:
                 return Response({'error': 'Payment not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # New year filter handling
         year_param = request.query_params.get('year')
         if year_param == '1':
-            # Calculate date range for last 12 months from today
             today = datetime.today()
             start_date = (today - relativedelta(months=12)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             end_date = today.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-            # Filter payments in this range
             payments_in_year = Payment.objects.filter(payment_date__range=[start_date, end_date])
-
-            # Calculate total price for the whole year (last 12 months)
             total_price_year = payments_in_year.aggregate(total=Sum('price'))['total'] or 0
-
-            # Count total items in last 12 months
             total_items = payments_in_year.count()
 
-            # Calculate monthly totals for the last 12 months
             monthly_totals = []
             current_month = start_date
             for i in range(12):
-                # Month start
                 month_start = current_month
-                # Month end is one month ahead minus 1 second
                 month_end = (month_start + relativedelta(months=1)) - timedelta(seconds=1)
 
                 total_month_price = payments_in_year.filter(payment_date__range=[month_start, month_end]) \
@@ -155,11 +139,7 @@ class PaymentAPIView(APIView):
 
             return Response(response_data)
 
-        # If year=0 or missing, normal flow with month, start, end filters
-
         filters = Q()
-
-        # Handle 'month' param with custom logic
         month_param = request.query_params.get('month')
         if month_param is not None:
             try:
@@ -169,21 +149,16 @@ class PaymentAPIView(APIView):
             except ValueError:
                 return Response({'error': 'Invalid month parameter, must be an integer.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Calculate target year and month based on current date
             today = datetime.today()
-            # Go back month_num months
             target_date = today - relativedelta(months=month_num)
             target_year = target_date.year
             target_month = target_date.month
 
-            # Calculate first and last datetime for that month
             start_month_date = datetime(target_year, target_month, 1)
-            # To get end of the month, add one month then subtract 1 second
             end_month_date = (start_month_date + relativedelta(months=1)) - timedelta(seconds=1)
 
             filters &= Q(payment_date__range=[start_month_date, end_month_date])
 
-        # Handle start and end datetime filters (overrides month filtering if both present)
         start_str = request.query_params.get('start')
         end_str = request.query_params.get('end')
 
@@ -198,7 +173,6 @@ class PaymentAPIView(APIView):
             except ValueError:
                 return Response({'error': 'Invalid start or end datetime format. Use ISO format.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Exact match filters (skip payment_date if month or start/end filters are applied)
         for field in ['user', 'price', 'payment_date']:
             if (month_param is not None or start_str or end_str) and field == 'payment_date':
                 continue
@@ -206,7 +180,6 @@ class PaymentAPIView(APIView):
             if value is not None:
                 filters &= Q(**{field: value})
 
-        # Partial match filters
         for field in ['duration', 'paid_method', 'payment_status', 'full_name']:
             value = request.query_params.get(field)
             if value is not None:
@@ -214,23 +187,20 @@ class PaymentAPIView(APIView):
 
         payments = Payment.objects.filter(filters)
 
-        # Calculate total_price only if 'month' is present
         total_price = None
         if month_param is not None:
             total_price = payments.aggregate(total=Sum('price'))['total'] or 0
 
-        # Ordering - default to latest payment_date descending
         order_by = request.query_params.get('order_by')
         if order_by == 'latest':
             payments = payments.order_by('-payment_date')
         elif order_by == 'earlier':
             payments = payments.order_by('payment_date')
         else:
-            payments = payments.order_by('-payment_date')  # Default ordering
+            payments = payments.order_by('-payment_date')
 
         total_items = payments.count()
 
-        # Pagination
         try:
             page = int(request.query_params.get('page', 1))
             limit = int(request.query_params.get('limit', 10))
@@ -244,9 +214,8 @@ class PaymentAPIView(APIView):
         paginated_payments = payments[start:end]
 
         serializer = PaymentSerializer(paginated_payments, many=True)
-        total_pages = (total_items + limit - 1) // limit  # ceiling division
+        total_pages = (total_items + limit - 1) // limit
 
-        # Build response
         response_data = {
             "limit": limit,
             "page": page,
@@ -255,7 +224,6 @@ class PaymentAPIView(APIView):
             "items": serializer.data
         }
 
-        # Add total_price at the start of response if month filter is used
         if total_price is not None:
             response_data = {"total_price": total_price, **response_data}
 
@@ -292,6 +260,6 @@ class PaymentAPIView(APIView):
         try:
             payment = Payment.objects.get(id=payment_id)
             payment.delete()
-            return Response({'message': 'Payment deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
+            return Response({'message': 'Payment deleted successfully.'})
         except Payment.DoesNotExist:
             return Response({'error': 'Payment not found.'}, status=status.HTTP_404_NOT_FOUND)

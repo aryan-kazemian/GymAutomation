@@ -4,29 +4,26 @@ from rest_framework import status
 from django.db.models import Q
 from .models import Locker
 from .serializers import LockerSerializer
+import math
 
 class LockerAPIView(APIView):
     def get(self, request):
         locker_id = request.query_params.get('id')
         if locker_id:
-            try:
-                locker = Locker.objects.get(id=locker_id)
-                serializer = LockerSerializer(locker)
-                return Response(serializer.data)
-            except Locker.DoesNotExist:
+            locker = Locker.objects.filter(id=locker_id).first()
+            if not locker:
                 return Response({'error': 'Locker not found.'}, status=status.HTTP_404_NOT_FOUND)
+            serializer = LockerSerializer(locker)
+            return Response(serializer.data)
 
         filters = Q()
-        filter_fields = ['is_vip', 'is_open', 'user', 'full_name']
-
-        for field in filter_fields:
+        for field in ['is_vip', 'is_open', 'user', 'full_name']:
             value = request.query_params.get(field)
             if value is not None:
                 filters &= Q(**{field: value})
 
         lockers = Locker.objects.filter(filters)
 
-        # Pagination
         try:
             page = int(request.query_params.get('page', 1))
             limit = int(request.query_params.get('limit', 10))
@@ -35,12 +32,19 @@ class LockerAPIView(APIView):
         except ValueError:
             return Response({'error': 'Invalid pagination parameters'}, status=status.HTTP_400_BAD_REQUEST)
 
+        total_items = lockers.count()
+        total_pages = math.ceil(total_items / limit)
         start = (page - 1) * limit
         end = start + limit
         paginated_lockers = lockers[start:end]
 
         serializer = LockerSerializer(paginated_lockers, many=True)
-        return Response(serializer.data)
+        return Response({
+            'total_items': total_items,
+            'total_pages': total_pages,
+            'current_page': page,
+            'data': serializer.data
+        })
 
     def post(self, request):
         serializer = LockerSerializer(data=request.data)
@@ -54,9 +58,8 @@ class LockerAPIView(APIView):
         if not locker_id:
             return Response({'error': 'ID query param required for PATCH.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            locker = Locker.objects.get(id=locker_id)
-        except Locker.DoesNotExist:
+        locker = Locker.objects.filter(id=locker_id).first()
+        if not locker:
             return Response({'error': 'Locker not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = LockerSerializer(locker, data=request.data, partial=True)
@@ -70,9 +73,9 @@ class LockerAPIView(APIView):
         if not locker_id:
             return Response({'error': 'ID query param required for DELETE.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            locker = Locker.objects.get(id=locker_id)
-            locker.delete()
-            return Response({'message': 'Locker deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
-        except Locker.DoesNotExist:
+        locker = Locker.objects.filter(id=locker_id).first()
+        if not locker:
             return Response({'error': 'Locker not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        locker.delete()
+        return Response({'message': 'Locker deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
