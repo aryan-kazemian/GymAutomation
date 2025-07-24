@@ -95,112 +95,120 @@ class PaymentSummaryAPIView(APIView):
 
 class PaymentAPIView(APIView):
     def get(self, request):
-        payment_id = request.query_params.get('id')
-        if payment_id:
-            try:
-                payment = Payment.objects.get(id=payment_id)
-                serializer = PaymentSerializer(payment)
-                return Response(serializer.data)
-            except Payment.DoesNotExist:
-                return Response({'error': 'Payment not found.'}, status=status.HTTP_404_NOT_FOUND)
-
         year_param = request.query_params.get('year')
         if year_param == '1':
             today = datetime.today()
-            start_date = (today - relativedelta(months=12)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            start_date = (today - timedelta(days=365)).replace(hour=0, minute=0, second=0, microsecond=0)
             end_date = today.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-            payments_in_year = Payment.objects.filter(payment_date__range=[start_date, end_date])
+            payments_in_year = Payment.objects.filter(payment_date__range=[start_date, end_date]).order_by('-payment_date')
             total_price_year = payments_in_year.aggregate(total=Sum('price'))['total'] or 0
             total_items = payments_in_year.count()
 
-            monthly_totals = []
-            current_month = start_date
-            for i in range(12):
-                month_start = current_month
+            # Pagination
+            try:
+                page = int(request.query_params.get('page', 1))
+                limit = int(request.query_params.get('limit', 10))
+                if page < 1 or limit < 1:
+                    raise ValueError
+            except ValueError:
+                return Response({'error': 'Invalid pagination parameters'}, status=status.HTTP_400_BAD_REQUEST)
+
+            start = (page - 1) * limit
+            end = start + limit
+            paginated_payments = payments_in_year[start:end]
+
+            serializer = PaymentSerializer(paginated_payments, many=True)
+            total_pages = (total_items + limit - 1) // limit
+
+            # Monthly summary: 12 months before + current = 13 total
+            monthly_summary = []
+            current = start_date.replace(day=1)
+            last_month_to_include = (today.replace(day=1) + relativedelta(months=1))  # Start of next month
+
+            while current < last_month_to_include:
+                month_start = current
                 month_end = (month_start + relativedelta(months=1)) - timedelta(seconds=1)
 
-                total_month_price = payments_in_year.filter(payment_date__range=[month_start, month_end]) \
-                    .aggregate(total=Sum('price'))['total'] or 0
+                month_payments = payments_in_year.filter(payment_date__range=[month_start, month_end])
+                month_price = month_payments.aggregate(total=Sum('price'))['total'] or 0
+                month_count = month_payments.count()
 
-                monthly_totals.append({
-                    "year": month_start.year,
-                    "month": month_start.month,
-                    "total_price": total_month_price
+                monthly_summary.append({
+                    "month": f"{month_start.year}-{month_start.month:02d}",
+                    "total_price": month_price,
+                    "payment_count": month_count
                 })
 
-                current_month += relativedelta(months=1)
+                current += relativedelta(months=1)
 
-            response_data = {
+            return Response({
+                "start_date": start_date.strftime('%Y-%m-%d'),
+                "end_date": end_date.strftime('%Y-%m-%d'),
                 "total_price": total_price_year,
                 "total_items": total_items,
-                "monthly_totals": monthly_totals,
-            }
+                "limit": limit,
+                "page": page,
+                "total_pages": total_pages,
+                "monthly_summary": monthly_summary,
+                "items": serializer.data
+            })
 
-            return Response(response_data)
-
-        filters = Q()
-        month_param = request.query_params.get('month')
-        if month_param is not None:
-            try:
-                month_num = int(month_param)
-                if month_num < 0:
-                    return Response({'error': 'Month parameter cannot be negative.'}, status=status.HTTP_400_BAD_REQUEST)
-            except ValueError:
-                return Response({'error': 'Invalid month parameter, must be an integer.'}, status=status.HTTP_400_BAD_REQUEST)
-
-            today = datetime.today()
-            target_date = today - relativedelta(months=month_num)
-            target_year = target_date.year
-            target_month = target_date.month
-
-            start_month_date = datetime(target_year, target_month, 1)
-            end_month_date = (start_month_date + relativedelta(months=1)) - timedelta(seconds=1)
-
-            filters &= Q(payment_date__range=[start_month_date, end_month_date])
-
+        # === NEW FILTERING LOGIC ADDED HERE ===
         start_str = request.query_params.get('start')
         end_str = request.query_params.get('end')
 
         if start_str or end_str:
+            # Parse dates safely, expect format like '2025-4-12'
             try:
-                if start_str:
-                    start_date = datetime.fromisoformat(start_str)
-                    filters &= Q(payment_date__gte=start_date)
-                if end_str:
-                    end_date = datetime.fromisoformat(end_str)
-                    filters &= Q(payment_date__lte=end_date)
+                start_date = datetime.strptime(start_str, '%Y-%m-%d') if start_str else None
+                end_date = datetime.strptime(end_str, '%Y-%m-%d') if end_str else None
             except ValueError:
-                return Response({'error': 'Invalid start or end datetime format. Use ISO format.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': 'Invalid date format for start or end. Use YYYY-M-D'}, status=status.HTTP_400_BAD_REQUEST)
 
-        for field in ['user', 'price', 'payment_date']:
-            if (month_param is not None or start_str or end_str) and field == 'payment_date':
-                continue
-            value = request.query_params.get(field)
-            if value is not None:
-                filters &= Q(**{field: value})
+            payments_filtered = Payment.objects.all()
 
-        for field in ['duration', 'paid_method', 'payment_status', 'full_name']:
-            value = request.query_params.get(field)
-            if value is not None:
-                filters &= Q(**{f"{field}__icontains": value})
+            if start_date and end_date:
+                # start day inclusive (start_date 00:00:00), end day exclusive (end_date 00:00:00)
+                payments_filtered = payments_filtered.filter(payment_date__gte=start_date, payment_date__lt=end_date)
+            elif start_date:
+                payments_filtered = payments_filtered.filter(payment_date__gte=start_date)
+            elif end_date:
+                payments_filtered = payments_filtered.filter(payment_date__lt=end_date)
 
-        payments = Payment.objects.filter(filters)
+            payments_filtered = payments_filtered.order_by('-payment_date')
 
-        total_price = None
-        if month_param is not None:
-            total_price = payments.aggregate(total=Sum('price'))['total'] or 0
+            total_items = payments_filtered.count()
 
-        order_by = request.query_params.get('order_by')
-        if order_by == 'latest':
-            payments = payments.order_by('-payment_date')
-        elif order_by == 'earlier':
-            payments = payments.order_by('payment_date')
-        else:
-            payments = payments.order_by('-payment_date')
+            # Pagination
+            try:
+                page = int(request.query_params.get('page', 1))
+                limit = int(request.query_params.get('limit', 10))
+                if page < 1 or limit < 1:
+                    raise ValueError
+            except ValueError:
+                return Response({'error': 'Invalid pagination parameters'}, status=status.HTTP_400_BAD_REQUEST)
+
+            start = (page - 1) * limit
+            end = start + limit
+            paginated_payments = payments_filtered[start:end]
+
+            serializer = PaymentSerializer(paginated_payments, many=True)
+            total_pages = (total_items + limit - 1) // limit
+
+            return Response({
+                "limit": limit,
+                "page": page,
+                "total_pages": total_pages,
+                "total_items": total_items,
+                "items": serializer.data
+            })
+        # === END NEW FILTERING LOGIC ===
+
+        # Default: no year=1 and no start/end, return all with pagination as you already had
+        payments = Payment.objects.all().order_by('-payment_date')
 
         total_items = payments.count()
-
         try:
             page = int(request.query_params.get('page', 1))
             limit = int(request.query_params.get('limit', 10))
@@ -216,18 +224,14 @@ class PaymentAPIView(APIView):
         serializer = PaymentSerializer(paginated_payments, many=True)
         total_pages = (total_items + limit - 1) // limit
 
-        response_data = {
+        return Response({
             "limit": limit,
             "page": page,
             "total_pages": total_pages,
             "total_items": total_items,
             "items": serializer.data
-        }
+        })
 
-        if total_price is not None:
-            response_data = {"total_price": total_price, **response_data}
-
-        return Response(response_data)
 
     def post(self, request):
         serializer = PaymentSerializer(data=request.data)
