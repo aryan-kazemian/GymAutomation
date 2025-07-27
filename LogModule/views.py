@@ -9,9 +9,10 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Log, GenMember
+from .models import Log
 from .serializers import LogSerializer
 from LockerModule.models import Locker
+from UserModule.models import GenMember
 
 logger = logging.getLogger(__name__)
 
