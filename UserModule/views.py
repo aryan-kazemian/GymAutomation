@@ -65,7 +65,7 @@ class DynamicAPIView(APIView):
                 if key not in ['action', 'page', 'limit', 'order_by']:
                     filters &= Q(**{key: value})
 
-            queryset = queryset.filter(filters)
+            queryset = queryset.filter(filters, is_single_settion=True)
 
             order_by = request.query_params.get('order_by')
             if order_by == 'latest':

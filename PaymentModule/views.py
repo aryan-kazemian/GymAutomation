@@ -44,24 +44,6 @@ class PaymentSummaryAPIView(APIView):
         today_price = today_agg['today_price'] or 0
         today_count = today_agg['today_count'] or 0
 
-        daily_prices = defaultdict(lambda: {'total_price': 0, 'count': 0})
-        days_in_month = calendar.monthrange(current_year, current_month)[1]
-        for day in range(1, days_in_month + 1):
-            date_str = f"{current_year}-{current_month:02d}-{day:02d}"
-            daily_prices[date_str] = {'total_price': 0, 'count': 0}
-
-        daily_agg = month_payments.values('payment_date__date').annotate(
-            total_price=Sum('price'),
-            count=Count('id')
-        )
-
-        for item in daily_agg:
-            date_key = item['payment_date__date'].strftime('%Y-%m-%d')
-            daily_prices[date_key] = {
-                'total_price': item['total_price'] or 0,
-                'count': item['count'] or 0
-            }
-
         monthly_prices = defaultdict(lambda: {'total_price': 0, 'count': 0})
         for month in range(1, 13):
             month_key = f"{current_year}-{month:02d}"
@@ -88,9 +70,9 @@ class PaymentSummaryAPIView(APIView):
             'month_count': month_count,
             'today_price': today_price,
             'today_count': today_count,
-            'daily_prices': dict(daily_prices),
             'monthly_prices': dict(monthly_prices),
         })
+
 
 
 class PaymentAPIView(APIView):
