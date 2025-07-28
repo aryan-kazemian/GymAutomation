@@ -188,10 +188,59 @@ class DynamicAPIView(APIView):
     def post(self, request):
         action = request.query_params.get('action')
         model = self.get_model(action)
-        if not model or action == 'pool':
+
+        if not model:
             return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
 
         self.serializer_class = self.get_serializer_class(model)
+
+        # Custom behavior for 'pool' action
+        if action == 'pool':
+            data = request.data.copy()
+
+            # Force is_single_settion to True
+            data['is_single_settion'] = True
+
+            # Set session_left to 1
+            data['session_left'] = 1
+
+            # Handle full_name → create GenPerson if full_name exists
+            full_name = data.pop('full_name', None)
+            if full_name:
+                person = GenPerson.objects.create(full_name=full_name)
+                data['person'] = person.id
+
+            # Generate unique ID
+            if 'id' not in data or data['id'] in [None, '']:
+                existing_ids = set(GenMember.objects.values_list('id', flat=True))
+                new_id = 1
+                while new_id in existing_ids:
+                    new_id += 1
+                data['id'] = new_id
+            else:
+                try:
+                    base_id = int(data['id'])
+                except ValueError:
+                    return Response({'error': 'Invalid ID format'}, status=status.HTTP_400_BAD_REQUEST)
+
+                while GenMember.objects.filter(id=base_id).exists():
+                    base_id += 1
+                data['id'] = base_id
+
+            serializer = GenMemberSerializer(data=data)
+            if serializer.is_valid():
+                member = serializer.save()
+
+                # Set membership_datetime to exact creation time
+                member.membership_datetime = member.creation_datetime.strftime('%Y-%m-%d %H:%M:%S')
+                member.save(update_fields=['membership_datetime'])
+
+                return Response(GenMemberSerializer(member).data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Default behavior for all other actions (untouched)
+        if action == 'pool':
+            return Response({'error': 'Invalid action'}, status=status.HTTP_400_BAD_REQUEST)
 
         data = request.data.copy()
 
@@ -216,6 +265,7 @@ class DynamicAPIView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
     def patch(self, request):
         action = request.query_params.get('action')
