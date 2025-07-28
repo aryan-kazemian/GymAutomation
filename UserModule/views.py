@@ -207,10 +207,14 @@ class DynamicAPIView(APIView):
             # Handle full_name → create GenPerson if full_name exists
             full_name = data.pop('full_name', None)
             if full_name:
-                person = GenPerson.objects.create(full_name=full_name)
+                existing_person_ids = set(GenPerson.objects.values_list('id', flat=True))
+                new_person_id = 1
+                while new_person_id in existing_person_ids:
+                    new_person_id += 1
+                person = GenPerson.objects.create(id=new_person_id, full_name=full_name)
                 data['person'] = person.id
 
-            # Generate unique ID
+            # Generate unique ID for GenMember
             if 'id' not in data or data['id'] in [None, '']:
                 existing_ids = set(GenMember.objects.values_list('id', flat=True))
                 new_id = 1
@@ -265,6 +269,7 @@ class DynamicAPIView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
     def patch(self, request):
