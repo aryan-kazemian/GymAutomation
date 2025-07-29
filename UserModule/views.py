@@ -92,7 +92,15 @@ class DynamicAPIView(APIView):
                     'price': member.price,
                     'shift_description': member.shift.shift_desc if member.shift else None,
                     'creation_datetime': member.creation_datetime,
-                    'full_name': member.person.full_name if member.person else None
+                    'full_name': member.person.full_name if member.person else None,
+                    'price': member.price,
+                    'card_no': member.card_no,
+                    'membership_type': member.membership_type,
+                    'membership_datetime': member.membership_datetime,
+                    'sport': member.sport
+
+
+
                 })
 
             return Response({
