@@ -22,6 +22,10 @@ class LockerAPIView(APIView):
             if value is not None:
                 filters &= Q(**{field: value})
 
+        place = request.query_params.get('place')
+        if place is not None:
+            filters &= Q(locker_place=place)
+
         lockers = Locker.objects.filter(filters)
 
         try:
@@ -49,7 +53,10 @@ class LockerAPIView(APIView):
     def post(self, request):
         close_all_non_vip = request.query_params.get('close_all_non_vip')
         open_all_non_vip = request.query_params.get('open_all_non_vip')
+        close_all_non_vip_in_place = request.query_params.get('close_all_non_vip_in_place')
+        open_all_non_vip_in_place = request.query_params.get('open_all_non_vip_in_place')
         multiple_creation = request.query_params.get('multiple_creation')
+        multiple_creation_at_place = request.query_params.get('multiple_creation_at_place')
 
         if close_all_non_vip == '1':
             Locker.objects.filter(is_vip=False).update(is_open=False)
@@ -59,10 +66,25 @@ class LockerAPIView(APIView):
             Locker.objects.filter(is_vip=False).update(is_open=True)
             return Response({'message': 'All non-VIP lockers have been opened.'}, status=status.HTTP_200_OK)
 
-        if multiple_creation == '1':
+        if close_all_non_vip_in_place is not None:
+            try:
+                place = int(close_all_non_vip_in_place)
+            except ValueError:
+                return Response({'error': 'Invalid locker_place value.'}, status=status.HTTP_400_BAD_REQUEST)
+            Locker.objects.filter(is_vip=False, locker_place=place).update(is_open=False)
+            return Response({'message': f'All non-VIP lockers at place {place} have been closed.'}, status=status.HTTP_200_OK)
+
+        if open_all_non_vip_in_place is not None:
+            try:
+                place = int(open_all_non_vip_in_place)
+            except ValueError:
+                return Response({'error': 'Invalid locker_place value.'}, status=status.HTTP_400_BAD_REQUEST)
+            Locker.objects.filter(is_vip=False, locker_place=place).update(is_open=True)
+            return Response({'message': f'All non-VIP lockers at place {place} have been opened.'}, status=status.HTTP_200_OK)
+
+        if multiple_creation == '1' or multiple_creation_at_place is not None:
             locker_count = request.data.get('locker_count')
             vip_count = request.data.get('vip_count', 0)
-
             try:
                 locker_count = int(locker_count)
                 vip_count = int(vip_count)
@@ -71,7 +93,6 @@ class LockerAPIView(APIView):
             except (ValueError, TypeError):
                 return Response({'error': 'Invalid locker_count or vip_count'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Determine available 'number' values starting from 1
             existing_numbers = set(Locker.objects.values_list('number', flat=True))
             next_number = 1
             assigned_numbers = []
@@ -81,7 +102,13 @@ class LockerAPIView(APIView):
                     assigned_numbers.append(next_number)
                 next_number += 1
 
-            # Create locker_count lockers, last vip_count are VIP
+            place = None
+            if multiple_creation_at_place is not None:
+                try:
+                    place = int(multiple_creation_at_place)
+                except ValueError:
+                    return Response({'error': 'Invalid place value for multiple_creation_at_place'}, status=status.HTTP_400_BAD_REQUEST)
+
             new_lockers = []
             for i in range(locker_count):
                 is_vip = i >= (locker_count - vip_count)
@@ -91,15 +118,15 @@ class LockerAPIView(APIView):
                     log=None,
                     user=None,
                     full_name=None,
-                    number=assigned_numbers[i]
+                    number=assigned_numbers[i],
+                    locker_place=place
                 )
                 new_lockers.append(locker)
 
             Locker.objects.bulk_create(new_lockers)
 
-            return Response({'message': f'{locker_count} lockers created successfully, with {vip_count} VIP.'}, status=status.HTTP_201_CREATED)
+            return Response({'message': f'{locker_count} lockers created successfully, with {vip_count} VIP.', 'place': place}, status=status.HTTP_201_CREATED)
 
-        # Default behavior: create a single locker from request data
         serializer = LockerSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
