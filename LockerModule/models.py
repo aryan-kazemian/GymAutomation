@@ -11,7 +11,15 @@ class Locker(models.Model):
     user = models.ForeignKey(GenPerson, on_delete=models.SET_NULL, null=True, blank=True)
     full_name = models.CharField(max_length=200, null=True, blank=True)
     number = models.IntegerField(null=True, blank=True)
-    locker_place = models.IntegerField(null=True, blank=True)
+    locker_place = models.ForeignKey('Saloon', on_delete=models.SET_NULL, null=True, blank=True)
+
 
     def __str__(self):
         return f"Locker {self.id} - {'VIP' if self.is_vip else 'Regular'}"
+
+
+class Saloon(models.Model):
+    description = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.description

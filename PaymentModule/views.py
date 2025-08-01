@@ -14,7 +14,6 @@ from .models import Payment
 from .serializers import PaymentSerializer
 from UserModule.models import GenMember
 
-
 class PaymentSummaryAPIView(APIView):
     def get(self, request):
         today = now().date()
@@ -44,6 +43,16 @@ class PaymentSummaryAPIView(APIView):
         today_price = today_agg['today_price'] or 0
         today_count = today_agg['today_count'] or 0
 
+        # NEW: Daily count dictionary for current year
+        daily_count = defaultdict(int)
+        daily_agg = year_payments.values('payment_date__date').annotate(
+            count=Count('id')
+        )
+
+        for item in daily_agg:
+            day_key = item['payment_date__date'].strftime('%Y-%m-%d')
+            daily_count[day_key] = item['count'] or 0
+
         monthly_prices = defaultdict(lambda: {'total_price': 0, 'count': 0})
         for month in range(1, 13):
             month_key = f"{current_year}-{month:02d}"
@@ -62,6 +71,7 @@ class PaymentSummaryAPIView(APIView):
             }
 
         return Response({
+            'daily_count': dict(daily_count),  # ✅ NEW
             'total_price': total_price,
             'total_count': total_count,
             'year_price': year_price,
@@ -72,6 +82,7 @@ class PaymentSummaryAPIView(APIView):
             'today_count': today_count,
             'monthly_prices': dict(monthly_prices),
         })
+
 
 
 
