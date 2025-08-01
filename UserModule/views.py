@@ -94,7 +94,7 @@ class DynamicAPIView(APIView):
                     'creation_datetime': member.creation_datetime,
                     'full_name': member.person.full_name if member.person else None,
                     'card_no': member.card_no,
-                    'membership_type': member.membership_type,
+                    'membership_type': member.membership_type.membership_type_desc if member.membership_type else None,
                     'membership_datetime': member.membership_datetime,
                     'sport': member.sport
 
