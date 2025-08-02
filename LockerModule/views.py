@@ -163,6 +163,18 @@ class LockerAPIView(APIView):
 
 class SaloonAPIView(APIView):
     def get(self, request):
+        saloon_id = request.query_params.get('id')
+        if saloon_id:
+            try:
+                saloon = Saloon.objects.get(id=saloon_id)
+                serializer = SaloonSerializer(saloon)
+                return Response(serializer.data)
+            except Saloon.DoesNotExist:
+                return Response({'error': 'Saloon not found'}, status=status.HTTP_404_NOT_FOUND)
+            except ValueError:
+                return Response({'error': 'Invalid ID format'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Pagination fallback
         try:
             page = int(request.query_params.get('page', 1))
             limit = int(request.query_params.get('limit', 10))
