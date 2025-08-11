@@ -1,4 +1,5 @@
 from django.db import models
+from UserModule.models import GenMember
 
 class ClubStats(models.Model):
     # Active members count
@@ -53,15 +54,29 @@ class ClubStats(models.Model):
     top3_attendance_avg_hours = models.FloatField()
 
     # Attendance by weekday and count, stored as JSON field for flexibility
-    # Example format: {'Monday': 150, 'Tuesday': 130, ...}
+    # Example: {'Monday': 150, 'Tuesday': 130, ...}
     attendance_by_weekday = models.JSONField()
 
-    # Average attendance hours by weekday, also JSON, e.g. {'Monday': 2.5, 'Tuesday': 1.8, ...}
+    # Average attendance hours by weekday, also JSON
+    # Example: {'Monday': 2.5, 'Tuesday': 1.8, ...}
     avg_hours_by_weekday = models.JSONField()
+
+    # Monthly new membership trends, e.g. {'Shahrivar': 12, 'Mordad': 20}
+    membership_trends = models.JSONField(default=dict, blank=True)
+
+    # Members count by age groups
+    # Structure: {'under_18': int, '18_to_25': int, '26_to_35': int, 'over_35': int}
+    age_groups = models.JSONField(default=dict, blank=True)
 
     # Date for this stats entry
     date_recorded = models.DateField(auto_now_add=True)
 
     def __str__(self):
         return f"ClubStats for {self.date_recorded}"
+
+
+class MemberSubLog(models.Model):
+    member = models.ForeignKey("GenMember", on_delete=models.SET_NULL, null=True)
+    end_date = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
 

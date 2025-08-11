@@ -1,4 +1,7 @@
 from django.db import models
+from django.utils import timezone
+from DataInsight.models import MemberSubLog
+
 
 class GenShift(models.Model):
     id = models.BigIntegerField(primary_key=True)
@@ -100,15 +103,33 @@ class GenMember(models.Model):
     face_template_5 = models.BinaryField(null=True, blank=True)
     creation_datetime = models.DateTimeField(null=True, blank=True, auto_now_add=True)
     session_left = models.IntegerField(null=True, blank=True)
-    end_date = models.CharField(max_length=255, null=True, blank=True)
+    end_date = models.DateTimeField(null=True, blank=True)
     sport = models.CharField(max_length=255, null=True, blank=True)
     price = models.CharField(max_length=255, null=True, blank=True)
     is_single_settion = models.BooleanField(default=False)
     balance = models.IntegerField(null=True, blank=True)
+    last_change_datetime = models.DateTimeField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            old = GenMember.objects.filter(pk=self.pk).first()
+            old_end_date = old.end_date if old else None
+        else:
+            old_end_date = None
+
+        self.last_change_datetime = timezone.now()
+        super().save(*args, **kwargs)
+
+        if self.end_date and self.end_date != old_end_date:
+            MemberSubLog.objects.create(
+                member=self,
+                end_date=self.end_date
+            )
 
 
     def __str__(self):
         return f"Member {self.id} - {self.card_no}"
     
+
 
         

@@ -89,6 +89,7 @@ class DynamicAPIView(APIView):
             data = []
             for member in paginated_queryset:
                 data.append({
+                    'person': member.person,
                     'price': member.price,
                     'shift_description': member.shift.shift_desc if member.shift else None,
                     'creation_datetime': member.creation_datetime,
