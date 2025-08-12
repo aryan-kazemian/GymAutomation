@@ -1,5 +1,4 @@
 from django.db import models
-from UserModule.models import GenMember
 
 class ClubStats(models.Model):
     # Active members count
@@ -76,7 +75,7 @@ class ClubStats(models.Model):
 
 
 class MemberSubLog(models.Model):
-    member = models.ForeignKey("GenMember", on_delete=models.SET_NULL, null=True)
+    member = models.ForeignKey("UserModule.GenMember", on_delete=models.SET_NULL, null=True)
     end_date = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
 
