@@ -148,7 +148,7 @@ class LogAPIView(APIView):
                     'role': member.role.role_desc if member and member.role else None,
                     'sport': member.sport if member else None,
                     'session_left': member.session_left if member else None,
-                    'membership_datetime': member.membership_datetime if member else None,
+                    'end_date': member.end_date if member else None,
                     'person_image': person_image_b64,
                     'locker_number': locker.number if locker else None,
                 }
