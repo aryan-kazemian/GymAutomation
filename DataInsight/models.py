@@ -1,4 +1,5 @@
 from django.db import models
+from django.apps import apps
 
 class ClubStats(models.Model):
     # Active members count
@@ -14,10 +15,7 @@ class ClubStats(models.Model):
     new_members_change_pct = models.IntegerField()
 
     # Average daily attendance of members
-    avg_daily_attendance = models.IntegerField()
-
-    # % change in avg daily attendance vs yesterday
-    attendance_change_pct = models.IntegerField()
+    avg_daily_attendance = models.FloatField()
 
     # Retention rate of members (percentage)
     retention_rate_pct = models.IntegerField()
@@ -27,15 +25,30 @@ class ClubStats(models.Model):
 
     # Top 3 popular sports and counts of members who practice them
     # For each: sport name, count, percentage of total members practicing that sport
-    top1_sport_name = models.CharField(max_length=100)
+    top1_sport_name = models.ForeignKey(
+    "UserModule.Sport",
+    on_delete=models.SET_NULL,
+    null=True,
+    related_name="top1_clubstats"
+)
     top1_sport_count = models.IntegerField()
     top1_sport_pct = models.FloatField()
 
-    top2_sport_name = models.CharField(max_length=100)
+    top2_sport_name = models.ForeignKey(
+    "UserModule.Sport",
+    on_delete=models.SET_NULL,
+    null=True,
+    related_name="top2_clubstats"
+)
     top2_sport_count = models.IntegerField()
     top2_sport_pct = models.FloatField()
 
-    top3_sport_name = models.CharField(max_length=100)
+    top3_sport_name = models.ForeignKey(
+    "UserModule.Sport",
+    on_delete=models.SET_NULL,
+    null=True,
+    related_name="top3_clubstats"
+)
     top3_sport_count = models.IntegerField()
     top3_sport_pct = models.FloatField()
 

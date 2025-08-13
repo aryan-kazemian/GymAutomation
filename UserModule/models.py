@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils import timezone
-from DataInsight.models import MemberSubLog
+from django.apps import apps
 
 
 class GenShift(models.Model):
@@ -104,7 +104,7 @@ class GenMember(models.Model):
     creation_datetime = models.DateTimeField(null=True, blank=True, auto_now_add=True)
     session_left = models.IntegerField(null=True, blank=True)
     end_date = models.DateTimeField(null=True, blank=True)
-    sport = models.CharField(max_length=255, null=True, blank=True)
+    sport = models.ForeignKey("Sport", on_delete=models.SET_NULL, null=True, blank=True)
     price = models.CharField(max_length=255, null=True, blank=True)
     is_single_settion = models.BooleanField(default=False)
     balance = models.IntegerField(null=True, blank=True)
@@ -121,6 +121,7 @@ class GenMember(models.Model):
         super().save(*args, **kwargs)
 
         if self.end_date and self.end_date != old_end_date:
+            MemberSubLog = apps.get_model('DataInsight', 'MemberSubLog')
             MemberSubLog.objects.create(
                 member=self,
                 end_date=self.end_date
@@ -132,4 +133,8 @@ class GenMember(models.Model):
     
 
 
-        
+class Sport(models.Model):
+    name = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.name

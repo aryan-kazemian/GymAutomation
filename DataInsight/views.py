@@ -5,8 +5,13 @@ from .serializers import ClubStatsSerializer
 from UserModule.models import GenMember
 from .models import MemberSubLog
 import jdatetime
-from datetime import datetime
 from django.utils import timezone
+from django.db.models import Count, Avg, F
+from django.utils import timezone
+from datetime import datetime, timedelta
+from LogModule.models import Log
+from django.db.models import Max
+
 
 
 def get_jalali_midnight_gregorian(j_year=None, j_month=None, j_day=None):
@@ -24,6 +29,43 @@ def get_jalali_midnight_gregorian(j_year=None, j_month=None, j_day=None):
         midnight_gregorian.month,
         midnight_gregorian.day
     ))
+
+
+def update_top_sports(stats):
+    now = timezone.now()
+    active_members = GenMember.objects.filter(
+        end_date__gte=now,
+        sport__isnull=False
+    )
+
+    total_active = active_members.count() or 1
+
+    sport_counts = (
+        active_members
+        .values('sport')
+        .annotate(count=Count('id'))
+        .order_by('-count')
+    )
+
+    top_sports = sport_counts[:3]
+    
+    for idx in range(3):
+        if idx < len(top_sports):
+            sport_id = top_sports[idx]['sport']
+            count = top_sports[idx]['count']
+            pct = (count / total_active) * 100
+
+            sport_instance = active_members.filter(sport_id=sport_id).first().sport
+
+            setattr(stats, f'top{idx+1}_sport_name', sport_instance)
+            setattr(stats, f'top{idx+1}_sport_count', count)
+            setattr(stats, f'top{idx+1}_sport_pct', round(pct, 2))
+        else:
+            setattr(stats, f'top{idx+1}_sport_name', None)
+            setattr(stats, f'top{idx+1}_sport_count', 0)
+            setattr(stats, f'top{idx+1}_sport_pct', 0.0)
+
+
 
 
 def update_info():
@@ -95,6 +137,84 @@ def update_info():
 
     stats.active_members_change_pct = change_pct
 
+    # Calculate  Avg Daily Attendance 
+
+    logs = Log.objects.order_by('entry_time').values_list('entry_time', flat=True)
+
+    if not logs:
+        return 0.0
+
+    day_counts = {}
+    for entry_time in logs:
+        entry_time = timezone.localtime(entry_time)
+        j_date = jdatetime.date.fromgregorian(
+            year=entry_time.year,
+            month=entry_time.month,
+            day=entry_time.day
+        )
+        day_counts[j_date] = day_counts.get(j_date, 0) + 1
+
+    if not day_counts:
+        return 0.0
+
+    avg = sum(day_counts.values()) / len(day_counts)
+    stats.avg_daily_attendance = float(avg)
+
+
+    # Get the latest subscription end date to define the current month
+    now_jalali = jdatetime.datetime.now()
+    first_day_six_months_ago = get_jalali_midnight_gregorian(
+        now_jalali.year, max(now_jalali.month - 5, 1), 1
+    )
+
+    # --- Retention rate calculation ---
+    # Members whose subscription ended this month
+    expired_subs = MemberSubLog.objects.filter(
+        end_date__lt=timezone.now()
+    )
+
+    retained_count = 0
+    for sub in expired_subs:
+        has_renewed = MemberSubLog.objects.filter(
+            member=sub.member,
+            created_at__gt=sub.end_date
+        ).exists()
+        if has_renewed:
+            retained_count += 1
+
+    total_expired = expired_subs.count()
+    if total_expired > 0:
+        stats.retention_rate_pct = int((retained_count / total_expired) * 100)
+    else:
+        stats.retention_rate_pct = 0
+
+    # --- Retention change vs last 6 months ---
+    # Calculate average retention for the last 6 months
+    six_months_ago = timezone.now() - timedelta(days=30*6)
+    past_expired_subs = MemberSubLog.objects.filter(
+        end_date__gte=six_months_ago,
+        end_date__lt=timezone.now()
+    )
+
+    past_retained_count = 0
+    for sub in past_expired_subs:
+        has_renewed = MemberSubLog.objects.filter(
+            member=sub.member,
+            created_at__gt=sub.end_date
+        ).exists()
+        if has_renewed:
+            past_retained_count += 1
+
+    past_total = past_expired_subs.count()
+    if past_total > 0:
+        past_avg_retention = (past_retained_count / past_total) * 100
+        stats.retention_change_pct = int(stats.retention_rate_pct - past_avg_retention)
+    else:
+        stats.retention_change_pct = 0
+
+    # Calculate Top 3 Sport 
+
+    update_top_sports(stats)
 
     stats.save()
 
@@ -115,16 +235,15 @@ class ClubStatsListAPIView(generics.ListAPIView):
                 new_members_today=0,
                 new_members_change_pct=0,
                 avg_daily_attendance=0,
-                attendance_change_pct=0,
                 retention_rate_pct=0,
                 retention_change_pct=0,
-                top1_sport_name='',
+                top1_sport_name=None,
                 top1_sport_count=0,
                 top1_sport_pct=0.0,
-                top2_sport_name='',
+                top2_sport_name=None,
                 top2_sport_count=0,
                 top2_sport_pct=0.0,
-                top3_sport_name='',
+                top3_sport_name=None,
                 top3_sport_count=0,
                 top3_sport_pct=0.0,
                 top1_attendance_hour='',

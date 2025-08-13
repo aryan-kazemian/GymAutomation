@@ -1,12 +1,16 @@
+from django.db.models import Q
+
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.db.models import Q
 
-from .models import GenShift, SecUser, GenPerson, GenPersonRole, GenMember, GenMembershipType
+from .models import (
+    GenShift, SecUser, GenPerson, GenPersonRole,
+    GenMember, GenMembershipType, Sport
+)
 from .serializers import (
     GenShiftSerializer, SecUserSerializer, GenPersonSerializer, GenPersonRoleSerializer,
-    GenMemberSerializer, GenMembershipTypeSerializer
+    GenMemberSerializer, GenMembershipTypeSerializer, SportSerializer
 )
 
 
@@ -321,3 +325,54 @@ class DynamicAPIView(APIView):
             return Response({"detail": f"{action} deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
         except model.DoesNotExist:
             return Response({"detail": f"{action} not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+
+
+
+
+class SportAPIView(APIView):
+
+    def get(self, request):
+        sport_id = request.query_params.get('id')
+        filters = Q()
+        if sport_id:
+            filters &= Q(id=sport_id)
+
+        queryset = Sport.objects.filter(filters)
+        serializer = SportSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        data = request.data.copy()
+        serializer = SportSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request):
+        sport_id = request.query_params.get('id')
+        if not sport_id:
+            return Response({'error': 'ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            sport = Sport.objects.get(id=sport_id)
+        except Sport.DoesNotExist:
+            return Response({'error': 'Sport not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = SportSerializer(sport, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request):
+        sport_id = request.query_params.get('id')
+        if not sport_id:
+            return Response({'error': 'ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            sport = Sport.objects.get(id=sport_id)
+            sport.delete()
+            return Response({'detail': 'Sport deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
+        except Sport.DoesNotExist:
+            return Response({'error': 'Sport not found'}, status=status.HTTP_404_NOT_FOUND)

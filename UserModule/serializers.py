@@ -1,6 +1,6 @@
 from rest_framework import serializers
 import base64
-from .models import GenShift, SecUser, GenPerson, GenPersonRole, GenMember, GenMembershipType
+from .models import GenShift, SecUser, GenPerson, GenPersonRole, GenMember, GenMembershipType, Sport
 
 
 class Base64BinaryField(serializers.Field):
@@ -68,6 +68,17 @@ class GenMemberSerializer(serializers.ModelSerializer):
     minutiae3 = Base64BinaryField(required=False, allow_null=True)
     session_left = serializers.IntegerField(required=False, allow_null=True)
 
+    # ✅ Update sport to FK
+    sport = serializers.PrimaryKeyRelatedField(
+        queryset=Sport.objects.all(), required=False, allow_null=True
+    )
+
+    # Optional: to return sport name instead of ID in GET
+    sport_name = serializers.SerializerMethodField()
+
+    def get_sport_name(self, obj):
+        return obj.sport.name if obj.sport else None
+
     class Meta:
         model = GenMember
         fields = [
@@ -75,5 +86,12 @@ class GenMemberSerializer(serializers.ModelSerializer):
             'has_finger', 'membership_datetime', 'modifier', 'modification_datetime', 'is_family', 'max_debit',
             'minutiae', 'minutiae2', 'minutiae3', 'salary', 'couch_id',
             'face_template_1', 'face_template_2', 'face_template_3', 'face_template_4', 'face_template_5',
-            'session_left', 'end_date', 'sport', 'price', "is_single_settion", "balance"
+            'session_left', 'end_date', 'sport', 'sport_name', 'price', "is_single_settion", "balance"
         ]
+
+
+
+class SportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Sport
+        fields = ['id', 'name']
