@@ -167,8 +167,15 @@ class SaloonAPIView(APIView):
         if saloon_id:
             try:
                 saloon = Saloon.objects.get(id=saloon_id)
-                serializer = SaloonSerializer(saloon)
-                return Response(serializer.data)
+                # Include lockers
+                lockers = Locker.objects.filter(locker_place=saloon)
+                locker_serializer = LockerSerializer(lockers, many=True)
+                response_data = {
+                    'id': saloon.id,
+                    'description': saloon.description,
+                    'lockers': locker_serializer.data
+                }
+                return Response(response_data)
             except Saloon.DoesNotExist:
                 return Response({'error': 'Saloon not found'}, status=status.HTTP_404_NOT_FOUND)
             except ValueError:
@@ -190,12 +197,22 @@ class SaloonAPIView(APIView):
         end = start + limit
         paginated_saloons = saloons[start:end]
 
-        serializer = SaloonSerializer(paginated_saloons, many=True)
+        # Serialize saloons with lockers
+        data = []
+        for saloon in paginated_saloons:
+            lockers = Locker.objects.filter(locker_place=saloon)
+            locker_serializer = LockerSerializer(lockers, many=True)
+            data.append({
+                'id': saloon.id,
+                'description': saloon.description,
+                'lockers': locker_serializer.data
+            })
+
         return Response({
             'total_items': total_items,
             'total_pages': total_pages,
             'current_page': page,
-            'data': serializer.data
+            'data': data
         })
 
     def post(self, request):

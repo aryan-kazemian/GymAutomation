@@ -1,77 +1,50 @@
 from django.db import models
 from django.apps import apps
 
+
 class ClubStats(models.Model):
     # Active members count
-    active_members = models.IntegerField()
+    active_members = models.IntegerField(null=True)
 
     # % change in active members vs previous month (int, can be negative)
-    active_members_change_pct = models.IntegerField()
+    active_members_change_pct = models.IntegerField(null=True)
 
     # New members today
-    new_members_today = models.IntegerField()
+    new_members_today = models.IntegerField(null=True)
 
     # % change in new members vs yesterday
-    new_members_change_pct = models.IntegerField()
+    new_members_change_pct = models.IntegerField(null=True)
 
     # Average daily attendance of members
-    avg_daily_attendance = models.FloatField()
+    avg_daily_attendance = models.FloatField(null=True)
 
     # Retention rate of members (percentage)
-    retention_rate_pct = models.IntegerField()
+    retention_rate_pct = models.IntegerField(null=True)
 
     # % change in retention rate vs last 6 months (can be negative)
-    retention_change_pct = models.IntegerField()
+    retention_change_pct = models.IntegerField(null=True)
 
-    # Top 3 popular sports and counts of members who practice them
-    # For each: sport name, count, percentage of total members practicing that sport
-    top1_sport_name = models.ForeignKey(
-    "UserModule.Sport",
-    on_delete=models.SET_NULL,
-    null=True,
-    related_name="top1_clubstats"
-)
-    top1_sport_count = models.IntegerField()
-    top1_sport_pct = models.FloatField()
+    # Top 3 popular sports and counts of members who practice them, stored as JSON for flexibility
+    # Example format:
+    # [
+    #     {"name": "Soccer", "count": 50, "percentage": 25.0},
+    #     {"name": "Basketball", "count": 40, "percentage": 20.0},
+    #     {"name": "Tennis", "count": 30, "percentage": 15.0}
+    # ]
+    top_sports_stats = models.JSONField(null=True)
 
-    top2_sport_name = models.ForeignKey(
-    "UserModule.Sport",
-    on_delete=models.SET_NULL,
-    null=True,
-    related_name="top2_clubstats"
-)
-    top2_sport_count = models.IntegerField()
-    top2_sport_pct = models.FloatField()
-
-    top3_sport_name = models.ForeignKey(
-    "UserModule.Sport",
-    on_delete=models.SET_NULL,
-    null=True,
-    related_name="top3_clubstats"
-)
-    top3_sport_count = models.IntegerField()
-    top3_sport_pct = models.FloatField()
-
-    # Max attendance hours to club (e.g. '6-7 PM') for top 3 time slots
-    top1_attendance_hour = models.CharField(max_length=20)
-    top1_attendance_count = models.IntegerField()
-    top1_attendance_avg_hours = models.FloatField()
-
-    top2_attendance_hour = models.CharField(max_length=20)
-    top2_attendance_count = models.IntegerField()
-    top2_attendance_avg_hours = models.FloatField()
-
-    top3_attendance_hour = models.CharField(max_length=20)
-    top3_attendance_count = models.IntegerField()
-    top3_attendance_avg_hours = models.FloatField()
+    # Top 3 attendance hours to club with counts and average hours, stored as JSON for flexibility
+    # Example format:
+    # [
+    #     {"hour_range": "6-7 PM", "count": 50, "avg_hours": 1.2},
+    #     {"hour_range": "7-8 PM", "count": 40, "avg_hours": 1.0},
+    #     {"hour_range": "5-6 PM", "count": 30, "avg_hours": 0.8}
+    # ]
+    top_attendance_hours = models.JSONField(null=True)
 
     # Attendance by weekday and count, stored as JSON field for flexibility
     # Example: {'Monday': 150, 'Tuesday': 130, ...}
-    attendance_by_weekday = models.JSONField()
-
-    # Average attendance hours by weekday, also JSON
-    # Example: {'Monday': 2.5, 'Tuesday': 1.8, ...}
-    avg_hours_by_weekday = models.JSONField()
+    attendance_by_weekday = models.JSONField(null=True)
 
     # Monthly new membership trends, e.g. {'Shahrivar': 12, 'Mordad': 20}
     membership_trends = models.JSONField(default=dict, blank=True)
