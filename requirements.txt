@@ -8,6 +8,7 @@ git-filter-repo==2.47.0
 idna==3.10
 jalali_core==1.0.0
 jdatetime==5.2.0
+Khayyam==3.0.17
 pillow==11.2.1
 pillow-avif-plugin==1.5.2
 psycopg2==2.9.10
