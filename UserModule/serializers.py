@@ -94,4 +94,4 @@ class GenMemberSerializer(serializers.ModelSerializer):
 class SportSerializer(serializers.ModelSerializer):
     class Meta:
         model = Sport
-        fields = ['id', 'name']
+        fields = ['id', 'name', 'price']

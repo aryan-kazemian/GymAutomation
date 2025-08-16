@@ -135,6 +135,7 @@ class GenMember(models.Model):
 
 class Sport(models.Model):
     name = models.CharField(max_length=255)
+    price = models.IntegerField(null=True, blank=True)
 
     def __str__(self):
         return self.name

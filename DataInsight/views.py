@@ -374,7 +374,6 @@ class ClubStatsListAPIView(generics.ListAPIView):
                 retention_change_pct=0,
                 top_sports_stats=[],
                 attendance_by_weekday={},
-                avg_hours_by_weekday={},
                 membership_trends={},
                 age_groups={},
             )
