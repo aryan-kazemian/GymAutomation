@@ -14,6 +14,60 @@ from .serializers import (
 )
 
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import CoachManagement
+from .serializers import CoachManagementSerializer
+from django.db.models import Q
+
+class CoachManagementAPIView(APIView):
+
+    def get(self, request):
+        coach_id = request.query_params.get('id')
+        filters = Q()
+        if coach_id:
+            filters &= Q(id=coach_id)
+
+        queryset = CoachManagement.objects.filter(filters)
+        serializer = CoachManagementSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = CoachManagementSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request):
+        coach_id = request.query_params.get('id')
+        if not coach_id:
+            return Response({'error': 'ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            coach = CoachManagement.objects.get(id=coach_id)
+        except CoachManagement.DoesNotExist:
+            return Response({'error': 'Coach not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = CoachManagementSerializer(coach, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request):
+        coach_id = request.query_params.get('id')
+        if not coach_id:
+            return Response({'error': 'ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            coach = CoachManagement.objects.get(id=coach_id)
+            coach.delete()
+            return Response({'detail': 'Coach deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
+        except CoachManagement.DoesNotExist:
+            return Response({'error': 'Coach not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+
 class DynamicAPIView(APIView):
 
     def get_model(self, action):

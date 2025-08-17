@@ -2,6 +2,12 @@ from rest_framework import serializers
 import base64
 from .models import GenShift, SecUser, GenPerson, GenPersonRole, GenMember, GenMembershipType, Sport
 
+from .models import CoachManagement
+
+class CoachManagementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CoachManagement
+        fields = '__all__'
 
 class Base64BinaryField(serializers.Field):
     def to_internal_value(self, data):
@@ -27,7 +33,7 @@ class SecUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SecUser
-        fields = ['id', 'person', 'username', 'password', 'is_admin', 'shift', 'is_active', 'creation_datetime']
+        fields = ['id', 'person', 'username', 'password', 'is_admin', 'shift', 'is_active', 'creation_datetime', 'lincess', 'access', 'is_vip']
 
 
 class GenPersonSerializer(serializers.ModelSerializer):

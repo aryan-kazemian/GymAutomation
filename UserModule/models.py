@@ -1,6 +1,8 @@
 from django.db import models
 from django.utils import timezone
 from django.apps import apps
+from django.contrib.postgres.fields import ArrayField
+
 
 
 class GenShift(models.Model):
@@ -32,7 +34,14 @@ class SecUser(models.Model):
     is_admin = models.BooleanField(default=False)
     shift = models.ForeignKey(GenShift, null=True, blank=True, on_delete=models.SET_NULL, related_name='users')
     is_active = models.BooleanField(default=True)
+    is_vip = models.BooleanField(default=False)
     creation_datetime = models.DateTimeField(null=True, blank=True, auto_now_add=True)
+    lincess = models.CharField(max_length=255, null=True, blank=True)
+    access = ArrayField(
+        models.CharField(max_length=100),
+        default=list,
+        blank=True
+    )
 
     def __str__(self):
         return self.username or f"User {self.id}"
@@ -139,3 +148,20 @@ class Sport(models.Model):
 
     def __str__(self):
         return self.name
+
+
+
+class CoachManagement(models.Model):
+    id = models.CharField(max_length=50, primary_key=True)
+    coachId = models.CharField(max_length=50, unique=True)
+    coachName = models.CharField(max_length=255)
+    coachPhoneNum = models.CharField(max_length=20)
+    coachSport = models.JSONField(default=list)  # Stores list of sports
+    coachNormalPlanPrice = models.PositiveIntegerField()
+    coachPrivatePlanPrice = models.PositiveIntegerField()
+    coachShift = models.CharField(max_length=50)
+    coachNormalUser = models.PositiveIntegerField(default=0)
+    coachPrivateUser = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return self.coachName

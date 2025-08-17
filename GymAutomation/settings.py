@@ -49,7 +49,8 @@ INSTALLED_APPS = [
     'pyodbc',
     'pillow_avif',
     'Test',
-    'DataInsight'
+    'DataInsight',
+    'StoreModule'
 ]
 
 MIDDLEWARE = [
