@@ -116,7 +116,7 @@ class DataImportFromJsonConfigAPIView(APIView):
                         'nidentity': row.Nidentity,
                         'person_image': row.PersonImage,
                         'thumbnail_image': row.ThumbnailImage,
-                        'birth_date': row.BirthDate,
+                        'birth_date': None,
                         'tel': row.Tel,
                         'mobile': row.Mobile,
                         'email': row.Email,
