@@ -156,7 +156,7 @@ class CoachManagement(models.Model):
     coachId = models.CharField(max_length=50, unique=True)
     coachName = models.CharField(max_length=255)
     coachPhoneNum = models.CharField(max_length=20)
-    coachSport = models.JSONField(default=list)  # Stores list of sports
+    coachSport = models.ManyToManyField("Sport", related_name="coaches")
     coachNormalPlanPrice = models.PositiveIntegerField()
     coachPrivatePlanPrice = models.PositiveIntegerField()
     coachShift = models.CharField(max_length=50)
