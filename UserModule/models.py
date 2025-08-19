@@ -152,8 +152,6 @@ class Sport(models.Model):
 
 
 class CoachManagement(models.Model):
-    id = models.CharField(max_length=50, primary_key=True)
-    coachId = models.CharField(max_length=50, unique=True)
     coachName = models.CharField(max_length=255)
     coachPhoneNum = models.CharField(max_length=20)
     coachSport = models.ManyToManyField("Sport", related_name="coaches")
