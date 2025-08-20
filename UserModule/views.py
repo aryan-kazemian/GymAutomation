@@ -232,7 +232,7 @@ class DynamicAPIView(APIView):
             for item in data:
                 extra = member_map.get(item['id'], {})
                 item['role'] = extra.get('role')
-                item['sport'] = extra.get('sport')
+                item['sport'] = extra.get('sport').name if extra.get('sport') else None
                 item['session_left'] = extra.get('session_left')
                 item['subscription_end_date'] = extra.get('subscription_end_date')
 
