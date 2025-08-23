@@ -158,7 +158,7 @@ class CoachManagement(models.Model):
     coachNormalPlanPrice = models.PositiveIntegerField()
     coachPrivatePlanPrice = models.PositiveIntegerField()
     coachShift = models.CharField(max_length=50)
-    coach_users = models.JSONField(default=dict, blank=True, null=True)
+    coach_users = models.JSONField(default=list, blank=True, null=True)
 
     def __str__(self):
         return self.coachName
