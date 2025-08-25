@@ -25,19 +25,23 @@ class CoachManagementAPIView(APIView):
 
     def get(self, request):
         coach_id = request.query_params.get('id')
-        filters = Q()
+        queryset = CoachManagement.objects.all()
         if coach_id:
-            filters &= Q(id=coach_id)
-
-        queryset = CoachManagement.objects.filter(filters)
+            queryset = queryset.filter(id=coach_id)
         serializer = CoachManagementSerializer(queryset, many=True)
         return Response(serializer.data)
 
     def post(self, request):
-        serializer = CoachManagementSerializer(data=request.data)
+        data = request.data.copy()
+        coach_users_data = data.pop('coach_users', [])  # extract nested data
+
+        serializer = CoachManagementSerializer(data=data)
         if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            coach = serializer.save()
+            # Save nested coach_users as JSON
+            coach.coach_users = coach_users_data
+            coach.save(update_fields=['coach_users'])
+            return Response(CoachManagementSerializer(coach).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def patch(self, request):
@@ -49,10 +53,16 @@ class CoachManagementAPIView(APIView):
         except CoachManagement.DoesNotExist:
             return Response({'error': 'Coach not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = CoachManagementSerializer(coach, data=request.data, partial=True)
+        data = request.data.copy()
+        coach_users_data = data.pop('coach_users', None)  # optional nested update
+
+        serializer = CoachManagementSerializer(coach, data=data, partial=True)
         if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
+            coach = serializer.save()
+            if coach_users_data is not None:
+                coach.coach_users = coach_users_data
+                coach.save(update_fields=['coach_users'])
+            return Response(CoachManagementSerializer(coach).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
@@ -65,6 +75,7 @@ class CoachManagementAPIView(APIView):
             return Response({'detail': 'Coach deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
         except CoachManagement.DoesNotExist:
             return Response({'error': 'Coach not found'}, status=status.HTTP_404_NOT_FOUND)
+
 
 
 

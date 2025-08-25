@@ -4,10 +4,18 @@ from .models import GenShift, SecUser, GenPerson, GenPersonRole, GenMember, GenM
 
 from .models import CoachManagement
 
+class CoachUserSerializer(serializers.Serializer):
+    person_id = serializers.IntegerField()
+    plan = serializers.CharField(max_length=100)
+    expire_date = serializers.DateField()
+
 class CoachManagementSerializer(serializers.ModelSerializer):
+    coach_users = serializers.ListField(child=serializers.DictField(), required=False)
+
     class Meta:
         model = CoachManagement
         fields = '__all__'
+
 
 class Base64BinaryField(serializers.Field):
     def to_internal_value(self, data):
