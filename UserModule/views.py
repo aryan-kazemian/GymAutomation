@@ -13,70 +13,133 @@ from .serializers import (
     GenMemberSerializer, GenMembershipTypeSerializer, SportSerializer
 )
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.pagination import PageNumberPagination
+
+from .models import CoachManagement, CoachUsers
+from .serializers import CoachManagementSerializer, CoachUsersSerializer
+
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import CoachManagement
 from .serializers import CoachManagementSerializer
-from django.db.models import Q
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import CoachUsers
+from .serializers import CoachUsersSerializer
 
 class CoachManagementAPIView(APIView):
 
     def get(self, request):
-        coach_id = request.query_params.get('id')
+        obj_id = request.query_params.get('id')
         queryset = CoachManagement.objects.all()
-        if coach_id:
-            queryset = queryset.filter(id=coach_id)
-        serializer = CoachManagementSerializer(queryset, many=True)
-        return Response(serializer.data)
+        if obj_id:
+            queryset = queryset.filter(id=obj_id)
+        
+        # Pagination
+        try:
+            page = int(request.query_params.get('page', 1))
+            limit = int(request.query_params.get('limit', 10))
+        except ValueError:
+            return Response({'error': 'Invalid pagination values'}, status=status.HTTP_400_BAD_REQUEST)
+
+        total_items = queryset.count()
+        total_pages = (total_items + limit - 1) // limit
+        start = (page - 1) * limit
+        end = start + limit
+        paginated_queryset = queryset[start:end]
+
+        serializer = CoachManagementSerializer(paginated_queryset, many=True)
+        return Response({
+            'total_items': total_items,
+            'total_pages': total_pages,
+            'current_page': page,
+            'items': serializer.data
+        })
 
     def post(self, request):
-        data = request.data.copy()
-        coach_users_data = data.pop('coach_users', [])  # extract nested data
-
-        serializer = CoachManagementSerializer(data=data)
+        serializer = CoachManagementSerializer(data=request.data)
         if serializer.is_valid():
             coach = serializer.save()
-            # Save nested coach_users as JSON
-            coach.coach_users = coach_users_data
-            coach.save(update_fields=['coach_users'])
             return Response(CoachManagementSerializer(coach).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def patch(self, request):
-        coach_id = request.query_params.get('id')
-        if not coach_id:
+        obj_id = request.query_params.get('id')
+        if not obj_id:
             return Response({'error': 'ID is required'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            coach = CoachManagement.objects.get(id=coach_id)
+            coach = CoachManagement.objects.get(id=obj_id)
         except CoachManagement.DoesNotExist:
             return Response({'error': 'Coach not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        data = request.data.copy()
-        coach_users_data = data.pop('coach_users', None)  # optional nested update
-
-        serializer = CoachManagementSerializer(coach, data=data, partial=True)
+        serializer = CoachManagementSerializer(coach, data=request.data, partial=True)
         if serializer.is_valid():
             coach = serializer.save()
-            if coach_users_data is not None:
-                coach.coach_users = coach_users_data
-                coach.save(update_fields=['coach_users'])
             return Response(CoachManagementSerializer(coach).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
-        coach_id = request.query_params.get('id')
-        if not coach_id:
+        obj_id = request.query_params.get('id')
+        if not obj_id:
             return Response({'error': 'ID is required'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            coach = CoachManagement.objects.get(id=coach_id)
+            coach = CoachManagement.objects.get(id=obj_id)
             coach.delete()
             return Response({'detail': 'Coach deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
         except CoachManagement.DoesNotExist:
             return Response({'error': 'Coach not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
+class CoachUsersAPIView(APIView):
+
+    def get(self, request):
+        obj_id = request.query_params.get('id')
+        queryset = CoachUsers.objects.all()
+        if obj_id:
+            queryset = queryset.filter(id=obj_id)
+
+        serializer = CoachUsersSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = CoachUsersSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            return Response(CoachUsersSerializer(user).data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request):
+        obj_id = request.query_params.get('id')
+        if not obj_id:
+            return Response({'error': 'ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user = CoachUsers.objects.get(id=obj_id)
+        except CoachUsers.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = CoachUsersSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            user = serializer.save()
+            return Response(CoachUsersSerializer(user).data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request):
+        obj_id = request.query_params.get('id')
+        if not obj_id:
+            return Response({'error': 'ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user = CoachUsers.objects.get(id=obj_id)
+            user.delete()
+            return Response({'detail': 'User deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
+        except CoachUsers.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
 class DynamicAPIView(APIView):

@@ -1,16 +1,15 @@
 from rest_framework import serializers
 import base64
-from .models import GenShift, SecUser, GenPerson, GenPersonRole, GenMember, GenMembershipType, Sport
+from .models import GenShift, SecUser, GenPerson, GenPersonRole, GenMember, GenMembershipType, Sport, CoachManagement, CoachUsers
 
-from .models import CoachManagement
+class CoachUsersSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CoachUsers
+        fields = '__all__'
 
-class CoachUserSerializer(serializers.Serializer):
-    person_id = serializers.IntegerField()
-    plan = serializers.CharField(max_length=100)
-    expire_date = serializers.DateField()
 
 class CoachManagementSerializer(serializers.ModelSerializer):
-    coach_users = serializers.ListField(child=serializers.DictField(), required=False)
+    coach_users = CoachUsersSerializer(many=True, read_only=True)  # nested users
 
     class Meta:
         model = CoachManagement

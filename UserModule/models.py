@@ -158,7 +158,31 @@ class CoachManagement(models.Model):
     coachNormalPlanPrice = models.PositiveIntegerField()
     coachPrivatePlanPrice = models.PositiveIntegerField()
     coachShift = models.CharField(max_length=50)
-    coach_users = models.JSONField(default=list, blank=True, null=True)
 
     def __str__(self):
         return self.coachName
+
+
+class CoachUsers(models.Model):
+    coach = models.ForeignKey(
+        CoachManagement,
+        on_delete=models.CASCADE,
+        related_name="coach_users"
+    )
+    person = models.ForeignKey(
+        "GenPerson",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="coach_members"   # changed here ✅
+    )
+    plan = models.CharField(max_length=50)
+    start_date = models.DateField(auto_now_add=True)
+    subscription_end_date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+
+    def __str__(self):
+        return f"{self.person} - {self.plan}"
+
+
