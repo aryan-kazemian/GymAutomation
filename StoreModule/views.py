@@ -1,9 +1,7 @@
 # views.py
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
 from django.db.models import Q
-from django.shortcuts import get_object_or_404
 import math
 
 from .models import StoreConfiguration, Category, Product, Order
@@ -22,6 +20,15 @@ class BaseAPIView(APIView):
     serializer_class = None
     filter_fields = []
 
+    def build_filters(self, request):
+        """Override this in subclasses if needed"""
+        filters = Q()
+        for field in self.filter_fields:
+            value = request.query_params.get(field)
+            if value is not None:
+                filters &= Q(**{field: value})
+        return filters
+
     def get(self, request):
         obj_id = request.query_params.get("id")
         if obj_id:
@@ -31,14 +38,10 @@ class BaseAPIView(APIView):
             serializer = self.serializer_class(instance)
             return Response(serializer.data)
 
-        filters = Q()
-        for field in self.filter_fields:
-            value = request.query_params.get(field)
-            if value is not None:
-                filters &= Q(**{field: value})
-
+        filters = self.build_filters(request)
         queryset = self.model.objects.filter(filters)
 
+        # Pagination
         try:
             page = int(request.query_params.get("page", 1))
             limit = int(request.query_params.get("limit", 10))
@@ -48,7 +51,7 @@ class BaseAPIView(APIView):
             return Response({"error": "Invalid pagination parameters"}, status=400)
 
         total_items = queryset.count()
-        total_pages = math.ceil(total_items / limit)
+        total_pages = math.ceil(total_items / limit) if total_items else 1
         start = (page - 1) * limit
         end = start + limit
         paginated = queryset[start:end]
@@ -96,25 +99,55 @@ class BaseAPIView(APIView):
         return Response({"message": f"{self.model.__name__} deleted successfully"}, status=204)
 
 
+# ---- Specific API Views ----
+
 class StoreConfigurationAPIView(BaseAPIView):
     model = StoreConfiguration
     serializer_class = StoreConfigurationSerializer
-    filter_fields = ["name"]  # adjust fields as needed
+    filter_fields = ["name", "is_active"]
+
+    def build_filters(self, request):
+        filters = super().build_filters(request)
+        gym_id = request.query_params.get("gym_id")
+        if gym_id:
+            filters &= Q(gym_id=gym_id)
+        return filters
 
 
 class CategoryAPIView(BaseAPIView):
     model = Category
     serializer_class = CategorySerializer
-    filter_fields = ["store"]
+    filter_fields = ["store", "is_active"]
+
+    def build_filters(self, request):
+        filters = super().build_filters(request)
+        gym_id = request.query_params.get("gym_id")
+        if gym_id:
+            filters &= Q(store__gym_id=gym_id)
+        return filters
 
 
 class ProductAPIView(BaseAPIView):
     model = Product
     serializer_class = ProductSerializer
-    filter_fields = ["category", "store", "is_active"]
+    filter_fields = ["category", "store", "is_available"]
+
+    def build_filters(self, request):
+        filters = super().build_filters(request)
+        gym_id = request.query_params.get("gym_id")
+        if gym_id:
+            filters &= Q(store__gym_id=gym_id)
+        return filters
 
 
 class OrderAPIView(BaseAPIView):
     model = Order
     serializer_class = OrderSerializer
-    filter_fields = ["status", "store", "user"]
+    filter_fields = ["status", "store", "payment_status"]
+
+    def build_filters(self, request):
+        filters = super().build_filters(request)
+        gym_id = request.query_params.get("gym_id")
+        if gym_id:
+            filters &= Q(store__gym_id=gym_id)
+        return filters
