@@ -111,6 +111,8 @@ class Order(models.Model):
         null=True,
         default='cash'
     )
+    
+    note = models.TextField(blank=True, null=True, default='')
 
     def __str__(self):
         return f"Order {self.orderId} - {self.status}"
@@ -123,7 +125,7 @@ class OrderItem(models.Model):
     quantity = models.PositiveIntegerField(default=1)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    note = models.TextField(blank=True, null=True, default='')
+    
 
     def __str__(self):
         return f"{self.quantity} x {self.name or 'Unknown'} (Order {self.order.orderId})"
