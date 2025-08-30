@@ -143,11 +143,6 @@ class ProductAPIView(BaseAPIView):
 class OrderAPIView(BaseAPIView):
     model = Order
     serializer_class = OrderSerializer
-    filter_fields = ["status", "store", "payment_status"]
+    filter_fields = ["status", "payment_method", "customer_name"]
 
-    def build_filters(self, request):
-        filters = super().build_filters(request)
-        gym_id = request.query_params.get("gym_id")
-        if gym_id:
-            filters &= Q(store__gym_id=gym_id)
-        return filters
+
