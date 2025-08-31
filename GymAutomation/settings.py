@@ -87,27 +87,27 @@ WSGI_APPLICATION = 'GymAutomation.wsgi.application'
 
 
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'GymAutomationDataBase'),
-        'USER': os.getenv('DB_USER', 'postgres'),                    
-        'PASSWORD': os.getenv('DB_PASSWORD', '9f$T8vQ#rX2!pL7@zW4^bK1&uM6*eY0'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),               
-        'PORT': os.getenv('DB_PORT', '5432'),
-    }
-}
-
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': os.getenv('DB_NAME', 'GymAutomationRestoredDataBase'),  # fallback local DB name
-#         'USER': os.getenv('DB_USER', 'postgres'),                     # fallback local user
-#         'PASSWORD': os.getenv('DB_PASSWORD', '138461011e'),           # fallback local password
-#         'HOST': os.getenv('DB_HOST', 'localhost'),                    # fallback local host
+#         'NAME': os.getenv('DB_NAME', 'GymAutomationDataBase'),
+#         'USER': os.getenv('DB_USER', 'postgres'),                    
+#         'PASSWORD': os.getenv('DB_PASSWORD', '9f$T8vQ#rX2!pL7@zW4^bK1&uM6*eY0'),
+#         'HOST': os.getenv('DB_HOST', 'localhost'),               
 #         'PORT': os.getenv('DB_PORT', '5432'),
 #     }
 # }
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME', 'GymAutomationRestoredDataBase'),  # fallback local DB name
+        'USER': os.getenv('DB_USER', 'postgres'),                     # fallback local user
+        'PASSWORD': os.getenv('DB_PASSWORD', '138461011e'),           # fallback local password
+        'HOST': os.getenv('DB_HOST', 'localhost'),                    # fallback local host
+        'PORT': os.getenv('DB_PORT', '5432'),
+    }
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

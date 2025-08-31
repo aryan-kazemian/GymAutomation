@@ -73,25 +73,10 @@ class Product(models.Model):
 
 
 class Order(models.Model):
-    ORDER_STATUS = [
-        ('pending', 'Pending'),
-        ('confirmed', 'Confirmed'),
-        ('preparing', 'Preparing'),
-        ('ready', 'Ready'),
-        ('delivered', 'Delivered'),
-        ('cancelled', 'Cancelled'),
-    ]
-
-    PAYMENT_METHODS = [
-        ('cash', 'Cash'),
-        ('card', 'Card'),
-        ('online', 'Online'),
-    ]
-
     orderId = models.CharField(
         max_length=100, null=True)
 
-    status = models.CharField(max_length=20, choices=ORDER_STATUS, default='pending', null=True)
+    status = models.CharField(max_length=100,null=True)
     date = models.DateTimeField(auto_now_add=True, null=True)
 
     subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -105,11 +90,9 @@ class Order(models.Model):
     customer_phone = models.CharField(max_length=20, blank=True, null=True, default='')
 
     payment_method = models.CharField(
-        max_length=20,
-        choices=PAYMENT_METHODS,
+        max_length=100,
         blank=True,
-        null=True,
-        default='cash'
+        null=True
     )
     
     note = models.TextField(blank=True, null=True, default='')
