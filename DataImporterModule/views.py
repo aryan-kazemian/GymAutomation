@@ -38,6 +38,16 @@ class DataImportFromJsonConfigAPIView(APIView):
                 f"DATABASE={database};"
                 "Trusted_Connection=yes;"
             )
+
+            
+            # conn = pyodbc.connect(
+            #     f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+            #     f"SERVER={server};"
+            #     f"DATABASE={database};"
+            #     f"UID=sa;"
+            #     f"PWD=1384610Ee!;"
+            #     "Encrypt=no;"  # disables SSL verification for local Docker
+            # )
             cursor = conn.cursor()
 
             # Import GenShift
