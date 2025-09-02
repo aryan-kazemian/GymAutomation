@@ -1,38 +1,66 @@
 from django.db.models import Q
+import json
 
 from rest_framework import status
-from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 
 from .models import (
     GenShift, SecUser, GenPerson, GenPersonRole,
-    GenMember, GenMembershipType, Sport
+    GenMember, GenMembershipType, Sport,
+    CoachManagement, CoachUsers
 )
 from .serializers import (
     GenShiftSerializer, SecUserSerializer, GenPersonSerializer, GenPersonRoleSerializer,
-    GenMemberSerializer, GenMembershipTypeSerializer, SportSerializer
+    GenMemberSerializer, GenMembershipTypeSerializer, SportSerializer,
+    CoachManagementSerializer, CoachUsersSerializer
 )
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.pagination import PageNumberPagination
+class TestCoachUsersAPIView(APIView):
+    """
+    New API endpoint for testing your friend's JSON submission.
+    Slightly modified to avoid JSON parsing issues.
+    """
 
-from .models import CoachManagement, CoachUsers
-from .serializers import CoachManagementSerializer, CoachUsersSerializer
+    def post(self, request):
+        # Enforce JSON content-type
+        if request.content_type != 'application/json':
+            return Response({'error': 'Content-Type must be application/json'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Parse raw body to catch invalid JSON early
+        try:
+            data = json.loads(request.body.decode('utf-8'))
+        except json.JSONDecodeError as e:
+            return Response({'error': f'Invalid JSON: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Ensure 'person' exists in GenPerson
+        person_id = data.get('person')
+        if person_id and not GenPerson.objects.filter(id=person_id).exists():
+            return Response({'error': f'Person with id {person_id} does not exist.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Auto-generate ID if missing
+        if 'id' not in data or not data['id']:
+            existing_ids = set(CoachUsers.objects.values_list('id', flat=True))
+            new_id = 1
+            while new_id in existing_ids:
+                new_id += 1
+            data['id'] = new_id
 
+        serializer = CoachUsersSerializer(data=data)
+        if serializer.is_valid():
+            user = serializer.save()
+            return Response(CoachUsersSerializer(user).data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .models import CoachManagement
-from .serializers import CoachManagementSerializer
+    def get(self, request):
+        """
+        Simple GET to list all users for testing.
+        """
+        users = CoachUsers.objects.all()
+        serializer = CoachUsersSerializer(users, many=True)
+        return Response(serializer.data)
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .models import CoachUsers
-from .serializers import CoachUsersSerializer
 
 class CoachManagementAPIView(APIView):
 
