@@ -9,6 +9,7 @@ from UserModule.models import (
     GenMembershipType, GenPersonRole, GenShift,
     SecUser, GenPerson, GenMember
 )
+from .models import DataImportProgress
 
 
 def safe_combine(date_part, time_part):
@@ -32,49 +33,51 @@ class DataImportFromJsonConfigAPIView(APIView):
             if not server or not database:
                 return JsonResponse({"error": "SERVER and DATABASE must be provided"}, status=400)
 
+            # Create or reset progress
+            progress, _ = DataImportProgress.objects.update_or_create(
+                task_name='data_import',
+                defaults={'total_steps': 5, 'current_step': 0, 'status': 'running'}
+            )
+
             conn = pyodbc.connect(
                 f"DRIVER={{ODBC Driver 17 for SQL Server}};"
                 f"SERVER={server};"
                 f"DATABASE={database};"
                 "Trusted_Connection=yes;"
             )
-
-            
-            # conn = pyodbc.connect(
-            #     f"DRIVER={{ODBC Driver 18 for SQL Server}};"
-            #     f"SERVER={server};"
-            #     f"DATABASE={database};"
-            #     f"UID=sa;"
-            #     f"PWD=1384610Ee!;"
-            #     "Encrypt=no;"  # disables SSL verification for local Docker
-            # )
             cursor = conn.cursor()
 
-            # Import GenShift
+            # Step 1: Import GenShift
             cursor.execute("SELECT ShiftID, ShiftDesc FROM Gen_Shift")
             for row in cursor.fetchall():
                 GenShift.objects.update_or_create(
                     id=row.ShiftID,
                     defaults={'shift_desc': row.ShiftDesc}
                 )
+            progress.current_step = 1
+            progress.save()
 
-            # Import GenPersonRole
+            # Step 2: Import GenPersonRole
             cursor.execute("SELECT RoleID, RoleDesc FROM Gen_PersonRole")
             for row in cursor.fetchall():
                 GenPersonRole.objects.update_or_create(
                     id=row.RoleID,
                     defaults={'role_desc': row.RoleDesc}
                 )
+            progress.current_step = 2
+            progress.save()
 
-            # Import GenMembershipType
+            # Step 3: Import GenMembershipType
             cursor.execute("SELECT MembershipTypeID, MembershipTypeDesc FROM Gen_MembershipType")
             for row in cursor.fetchall():
                 GenMembershipType.objects.update_or_create(
                     id=row.MembershipTypeID,
                     defaults={'membership_type_desc': row.MembershipTypeDesc}
                 )
+            progress.current_step = 3
+            progress.save()
 
-            # Import SecUser
+            # Step 4: Import SecUser
             cursor.execute("""
                 SELECT UserID, PersonID, UserName, UPassword, IsAdmin, ShiftID, 
                        IsActive, CreationDate, CreationTime
@@ -97,7 +100,10 @@ class DataImportFromJsonConfigAPIView(APIView):
                         'person': person_instance,
                     }
                 )
+            progress.current_step = 4
+            progress.save()
 
+            # Step 5: Import GenPerson and GenMember
             # Import GenPerson
             cursor.execute("""
                 SELECT PersonID, FirstName, LastName, FullName, FatherName, Gender, NationalCode, 
@@ -193,7 +199,28 @@ class DataImportFromJsonConfigAPIView(APIView):
                     }
                 )
 
+            progress.current_step = 5
+            progress.status = 'completed'
+            progress.save()
+
             return Response({"message": "Data imported successfully"}, status=status.HTTP_200_OK)
 
         except Exception as e:
+            progress.status = 'failed'
+            progress.save()
             return JsonResponse({"error": str(e)}, status=500)
+
+
+# Progress endpoint for frontend polling
+class DataImportProgressAPIView(APIView):
+    def get(self, request):
+        progress = DataImportProgress.objects.filter(task_name='data_import').first()
+        if not progress:
+            return Response({"error": "No progress found"}, status=404)
+
+        return Response({
+            "total_steps": progress.total_steps,
+            "current_step": progress.current_step,
+            "status": progress.status,
+            "percent": progress.progress_percent()
+        })
