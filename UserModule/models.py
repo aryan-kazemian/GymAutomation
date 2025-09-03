@@ -177,8 +177,8 @@ class CoachUsers(models.Model):
         related_name="coach_members"   # changed here ✅
     )
     plan = models.CharField(max_length=50, null=True, blank=True)
-    start_date = models.DateField(auto_now_add=True)
-    subscription_end_date = models.DateField(null=True, blank=True)
+    start_date = models.DateTimeField(auto_now_add=True)
+    subscription_end_date = models.DateTimeField(null=True, blank=True)
     start_time = models.TimeField(null=True, blank=True)
     end_time = models.TimeField(null=True, blank=True)
 
