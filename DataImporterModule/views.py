@@ -1,6 +1,7 @@
+from django.db import models
+from datetime import datetime
 import json
 import pyodbc
-from datetime import datetime
 from django.http import JsonResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -12,6 +13,7 @@ from UserModule.models import (
 from .models import DataImportProgress
 
 
+# Utility function to safely combine date and time
 def safe_combine(date_part, time_part):
     try:
         if isinstance(date_part, str):
@@ -36,7 +38,7 @@ class DataImportFromJsonConfigAPIView(APIView):
             # Create or reset progress
             progress, _ = DataImportProgress.objects.update_or_create(
                 task_name='data_import',
-                defaults={'total_steps': 5, 'current_step': 0, 'status': 'running'}
+                defaults={'total_steps': 0, 'current_step': 0, 'status': 'running'}
             )
 
             conn = pyodbc.connect(
@@ -47,37 +49,63 @@ class DataImportFromJsonConfigAPIView(APIView):
             )
             cursor = conn.cursor()
 
-            # Step 1: Import GenShift
+            # Collect counts for all tables to calculate total_steps
+            total_steps = 0
+
+            cursor.execute("SELECT COUNT(*) FROM Gen_Shift")
+            total_steps += cursor.fetchone()[0]
+
+            cursor.execute("SELECT COUNT(*) FROM Gen_PersonRole")
+            total_steps += cursor.fetchone()[0]
+
+            cursor.execute("SELECT COUNT(*) FROM Gen_MembershipType")
+            total_steps += cursor.fetchone()[0]
+
+            cursor.execute("SELECT COUNT(*) FROM Sec_Users")
+            total_steps += cursor.fetchone()[0]
+
+            cursor.execute("SELECT COUNT(*) FROM Gen_Person")
+            total_steps += cursor.fetchone()[0]
+
+            cursor.execute("SELECT COUNT(*) FROM Gen_Members")
+            total_steps += cursor.fetchone()[0]
+
+            progress.total_steps = total_steps
+            progress.current_step = 0
+            progress.status = 'running'
+            progress.save()
+
+            # --- Step 1: Import GenShift ---
             cursor.execute("SELECT ShiftID, ShiftDesc FROM Gen_Shift")
             for row in cursor.fetchall():
                 GenShift.objects.update_or_create(
                     id=row.ShiftID,
                     defaults={'shift_desc': row.ShiftDesc}
                 )
-            progress.current_step = 1
-            progress.save()
+                progress.current_step += 1
+                progress.save()
 
-            # Step 2: Import GenPersonRole
+            # --- Step 2: Import GenPersonRole ---
             cursor.execute("SELECT RoleID, RoleDesc FROM Gen_PersonRole")
             for row in cursor.fetchall():
                 GenPersonRole.objects.update_or_create(
                     id=row.RoleID,
                     defaults={'role_desc': row.RoleDesc}
                 )
-            progress.current_step = 2
-            progress.save()
+                progress.current_step += 1
+                progress.save()
 
-            # Step 3: Import GenMembershipType
+            # --- Step 3: Import GenMembershipType ---
             cursor.execute("SELECT MembershipTypeID, MembershipTypeDesc FROM Gen_MembershipType")
             for row in cursor.fetchall():
                 GenMembershipType.objects.update_or_create(
                     id=row.MembershipTypeID,
                     defaults={'membership_type_desc': row.MembershipTypeDesc}
                 )
-            progress.current_step = 3
-            progress.save()
+                progress.current_step += 1
+                progress.save()
 
-            # Step 4: Import SecUser
+            # --- Step 4: Import SecUser ---
             cursor.execute("""
                 SELECT UserID, PersonID, UserName, UPassword, IsAdmin, ShiftID, 
                        IsActive, CreationDate, CreationTime
@@ -100,11 +128,10 @@ class DataImportFromJsonConfigAPIView(APIView):
                         'person': person_instance,
                     }
                 )
-            progress.current_step = 4
-            progress.save()
+                progress.current_step += 1
+                progress.save()
 
-            # Step 5: Import GenPerson and GenMember
-            # Import GenPerson
+            # --- Step 5: Import GenPerson ---
             cursor.execute("""
                 SELECT PersonID, FirstName, LastName, FullName, FatherName, Gender, NationalCode, 
                        Nidentity, PersonImage, ThumbnailImage, BirthDate, Tel, Mobile, Email, 
@@ -152,8 +179,10 @@ class DataImportFromJsonConfigAPIView(APIView):
                         'modification_datetime': modification_datetime,
                     }
                 )
+                progress.current_step += 1
+                progress.save()
 
-            # Import GenMember
+            # --- Step 6: Import GenMember ---
             cursor.execute("""
                 SELECT MemberID, CardNo, PersonID, RoleID, UserID, ShiftID, 
                        IsBlackList, BoxRadifNo, HasFinger, MembershipDate, MembershipTime, 
@@ -198,8 +227,10 @@ class DataImportFromJsonConfigAPIView(APIView):
                         'face_template_5': row.FaceTmpl5,
                     }
                 )
+                progress.current_step += 1
+                progress.save()
 
-            progress.current_step = 5
+            # Mark completed
             progress.status = 'completed'
             progress.save()
 
@@ -211,7 +242,7 @@ class DataImportFromJsonConfigAPIView(APIView):
             return JsonResponse({"error": str(e)}, status=500)
 
 
-# Progress endpoint for frontend polling
+# --- Progress endpoint for frontend polling ---
 class DataImportProgressAPIView(APIView):
     def get(self, request):
         progress = DataImportProgress.objects.filter(task_name='data_import').first()
