@@ -49,26 +49,14 @@ class DataImportFromJsonConfigAPIView(APIView):
             )
             cursor = conn.cursor()
 
-            # Collect counts for all tables to calculate total_steps
+            # --- Count all rows first ---
             total_steps = 0
-
-            cursor.execute("SELECT COUNT(*) FROM Gen_Shift")
-            total_steps += cursor.fetchone()[0]
-
-            cursor.execute("SELECT COUNT(*) FROM Gen_PersonRole")
-            total_steps += cursor.fetchone()[0]
-
-            cursor.execute("SELECT COUNT(*) FROM Gen_MembershipType")
-            total_steps += cursor.fetchone()[0]
-
-            cursor.execute("SELECT COUNT(*) FROM Sec_Users")
-            total_steps += cursor.fetchone()[0]
-
-            cursor.execute("SELECT COUNT(*) FROM Gen_Person")
-            total_steps += cursor.fetchone()[0]
-
-            cursor.execute("SELECT COUNT(*) FROM Gen_Members")
-            total_steps += cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM Gen_Shift"); total_steps += cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM Gen_PersonRole"); total_steps += cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM Gen_MembershipType"); total_steps += cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM Sec_Users"); total_steps += cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM Gen_Person"); total_steps += cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM Gen_Members"); total_steps += cursor.fetchone()[0]
 
             progress.total_steps = total_steps
             progress.current_step = 0
@@ -230,7 +218,8 @@ class DataImportFromJsonConfigAPIView(APIView):
                 progress.current_step += 1
                 progress.save()
 
-            # Mark completed
+            # --- Mark completed ---
+            progress.current_step = progress.total_steps  # force 100%
             progress.status = 'completed'
             progress.save()
 
@@ -249,9 +238,12 @@ class DataImportProgressAPIView(APIView):
         if not progress:
             return Response({"error": "No progress found"}, status=404)
 
+        percent = progress.progress_percent()
+
         return Response({
+            "task_name": progress.task_name,
             "total_steps": progress.total_steps,
             "current_step": progress.current_step,
-            "status": progress.status,
-            "percent": progress.progress_percent()
+            "status": progress.status,  # pending | running | completed | failed
+            "percent": percent          # 0 → 100
         })

@@ -8,5 +8,6 @@ class DataImportProgress(models.Model):
 
     def progress_percent(self):
         if self.total_steps > 0:
-            return int((self.current_step / self.total_steps) * 100)
+            percent = int((self.current_step / self.total_steps) * 100)
+            return max(0, min(100, percent))  # clamp 0–100
         return 0
