@@ -27,3 +27,17 @@ staticfiles/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Build / Distribution folders
+build/
+dist/
+dist_obf/
+
+# Launcher / PyInstaller / PyArmor artifacts
+launcher.py
+launcher.spec
+license.json
+license_utils.py
+
+# Other temporary or generated files
+*.egg-info/
