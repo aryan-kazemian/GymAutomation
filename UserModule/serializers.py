@@ -1,6 +1,25 @@
 from rest_framework import serializers
 import base64
 from .models import GenShift, SecUser, GenPerson, GenPersonRole, GenMember, GenMembershipType, Sport, CoachManagement, CoachUsers
+from rest_framework import serializers
+from .models import GenMember
+import base64
+
+class FingerprintSerializer(serializers.ModelSerializer):
+    minutiae = serializers.CharField(required=False, allow_blank=True)
+    minutiae2 = serializers.CharField(required=False, allow_blank=True)
+    minutiae3 = serializers.CharField(required=False, allow_blank=True)
+
+    def to_internal_value(self, data):
+        ret = super().to_internal_value(data)
+        for field in ['minutiae', 'minutiae2', 'minutiae3']:
+            if field in ret and ret[field]:
+                ret[field] = base64.b64decode(ret[field])
+        return ret
+
+    class Meta:
+        model = GenMember
+        fields = ['minutiae', 'minutiae2', 'minutiae3', 'has_finger']
 
 class CoachUsersSerializer(serializers.ModelSerializer):
     class Meta:

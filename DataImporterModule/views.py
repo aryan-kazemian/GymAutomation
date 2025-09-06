@@ -59,7 +59,6 @@ class DataImportFromJsonConfigAPIView(APIView):
             cursor.execute("SELECT COUNT(*) FROM Gen_Members"); total_steps += cursor.fetchone()[0]
 
             progress.total_steps = total_steps
-            progress.current_step = 0
             progress.status = 'running'
             progress.save()
 

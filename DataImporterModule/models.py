@@ -11,3 +11,4 @@ class DataImportProgress(models.Model):
             percent = int((self.current_step / self.total_steps) * 100)
             return max(0, min(100, percent))  # clamp 0–100
         return 0
+

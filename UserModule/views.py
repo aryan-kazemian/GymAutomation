@@ -1,11 +1,17 @@
-from django.db.models import Q
+# Standard library imports
 import json
+import base64
 
+# Django imports
+from django.db.models import Q
+
+# DRF (Django Rest Framework) imports
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 
+# Local app imports
 from .models import (
     GenShift, SecUser, GenPerson, GenPersonRole,
     GenMember, GenMembershipType, Sport,
@@ -16,6 +22,65 @@ from .serializers import (
     GenMemberSerializer, GenMembershipTypeSerializer, SportSerializer,
     CoachManagementSerializer, CoachUsersSerializer
 )
+
+
+class FingerprintAPIView(APIView):
+    """
+    POST: Verify a captured fingerprint
+    PATCH: Update a member's fingerprint templates (member ID comes in JSON)
+    """
+
+    def post(self, request):
+        """Verify fingerprint"""
+        template_base64 = request.data.get("template")
+        user_id = request.data.get("userId")
+
+        if not template_base64:
+            return Response({"error": "No fingerprint provided"}, status=400)
+
+        template_bytes = base64.b64decode(template_base64)
+        members = GenMember.objects.all()
+        if user_id:
+            members = members.filter(id=user_id)
+
+        for member in members:
+            if member.minutiae == template_bytes or \
+               member.minutiae2 == template_bytes or \
+               member.minutiae3 == template_bytes:
+                return Response({
+                    "userId": member.id,
+                    "full_name": member.person.full_name if member.person else None
+                }, status=200)
+
+        return Response({"message": "No matching user found"}, status=404)
+
+    def patch(self, request):
+        """Update fingerprints for a member using JSON payload"""
+        member_id = request.data.get("id")
+        if not member_id:
+            return Response({"error": "Member ID is required in JSON payload"}, status=400)
+
+        try:
+            member = GenMember.objects.get(id=member_id)
+        except GenMember.DoesNotExist:
+            return Response({"error": "Member not found"}, status=404)
+
+        # Decode base64 to bytes
+        for field in ['minutiae', 'minutiae2', 'minutiae3']:
+            if field in request.data and request.data[field]:
+                request.data[field] = base64.b64decode(request.data[field])
+
+        # Update has_finger if provided
+        if 'has_finger' in request.data:
+            member.has_finger = request.data['has_finger']
+
+        # Update minutiae fields
+        for field in ['minutiae', 'minutiae2', 'minutiae3']:
+            if field in request.data:
+                setattr(member, field, request.data[field])
+
+        member.save()
+        return Response({"message": "Fingerprint updated successfully"}, status=200)
 
 
 class CoachManagementAPIView(APIView):
@@ -437,10 +502,6 @@ class DynamicAPIView(APIView):
             return Response({"detail": f"{action} deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
         except model.DoesNotExist:
             return Response({"detail": f"{action} not found."}, status=status.HTTP_404_NOT_FOUND)
-
-
-
-
 
 
 class SportAPIView(APIView):
