@@ -4,6 +4,7 @@ from UserModule.models import GenPerson
 class Locker(models.Model):
     is_vip = models.BooleanField(default=False)
     is_open = models.BooleanField(default=False)
+    is_broken = models.BooleanField(default=False)
 
     log = models.JSONField(null=True,
                            blank=True)  # Stores a list of log entries, e.g., [{"full_name": "John Doe", "datetime": "2025-05-08T12:30:00"}]
@@ -12,6 +13,7 @@ class Locker(models.Model):
     full_name = models.CharField(max_length=200, null=True, blank=True)
     number = models.IntegerField(null=True, blank=True)
     locker_place = models.ForeignKey('Saloon', on_delete=models.SET_NULL, null=True, blank=True)
+    
 
 
     def __str__(self):
