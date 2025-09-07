@@ -20,15 +20,43 @@ from .models import (
 from .serializers import (
     GenShiftSerializer, SecUserSerializer, GenPersonSerializer, GenPersonRoleSerializer,
     GenMemberSerializer, GenMembershipTypeSerializer, SportSerializer,
-    CoachManagementSerializer, CoachUsersSerializer
+    CoachManagementSerializer, CoachUsersSerializer, FingerprintListSerializer
 )
 
 
 class FingerprintAPIView(APIView):
-    """
-    POST: Verify a captured fingerprint
-    PATCH: Update a member's fingerprint templates (member ID comes in JSON)
-    """
+    def get(self, request):
+        queryset = GenMember.objects.all()
+
+        # Check for pagination params
+        page = request.query_params.get("page")
+        limit = request.query_params.get("limit")
+
+        if page is not None and limit is not None:
+            try:
+                page = int(page)
+                limit = int(limit)
+            except ValueError:
+                return Response({"error": "Invalid pagination values"}, status=400)
+
+            total_items = queryset.count()
+            total_pages = (total_items + limit - 1) // limit
+
+            start = (page - 1) * limit
+            end = start + limit
+            queryset = queryset[start:end]
+
+            serializer = FingerprintListSerializer(queryset, many=True)
+            return Response({
+                "total_items": total_items,
+                "total_pages": total_pages,
+                "current_page": page,
+                "items": serializer.data
+            })
+
+        # If no pagination requested → return all
+        serializer = FingerprintListSerializer(queryset, many=True)
+        return Response(serializer.data)
 
     def post(self, request):
         """Verify fingerprint"""

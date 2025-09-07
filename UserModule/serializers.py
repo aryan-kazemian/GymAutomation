@@ -5,6 +5,25 @@ from rest_framework import serializers
 from .models import GenMember
 import base64
 
+class FingerprintListSerializer(serializers.ModelSerializer):
+    member_id = serializers.IntegerField(source="id")
+    person_id = serializers.IntegerField(source="person.id", allow_null=True)
+    minutiae = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GenMember
+        fields = ["member_id", "person_id", "minutiae"]
+
+    def get_minutiae(self, obj):
+        minutiae_list = []
+        for field in [obj.minutiae, obj.minutiae2, obj.minutiae3]:
+            if field:  # encode back to base64 for JSON
+                minutiae_list.append(base64.b64encode(field).decode("utf-8"))
+            else:
+                minutiae_list.append(None)
+        return minutiae_list
+
+
 class FingerprintSerializer(serializers.ModelSerializer):
     minutiae = serializers.CharField(required=False, allow_blank=True)
     minutiae2 = serializers.CharField(required=False, allow_blank=True)
